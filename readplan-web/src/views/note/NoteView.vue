@@ -5,6 +5,7 @@ import { createNote, deleteNote, getMyNotes, updateNote } from '@/api/note/note'
 import { getMyReadingPlans } from '@/api/plan/plan';
 import AppPage from '@/components/common/AppPage.vue';
 import NoteEditorDialog from '@/components/note/NoteEditorDialog.vue';
+import { renderMarkdown } from '@/utils/markdown';
 import type { NoteEditorForm, ReadingPlanItem, UserNoteSummary } from '@/types/readplan';
 
 const loading = shallowRef(false);
@@ -114,7 +115,7 @@ onMounted(() => {
           </div>
           <span>{{ note.createdAt }}</span>
         </div>
-        <p>{{ note.excerpt }}</p>
+        <div class="note-card__markdown" v-html="renderMarkdown(note.excerpt)"></div>
         <div class="note-card__footer">
           <span>评论 {{ note.commentCount }}</span>
           <div class="note-card__actions">
@@ -176,5 +177,16 @@ onMounted(() => {
 .note-card p {
   margin: 16px 0;
   line-height: 1.7;
+}
+
+.note-card__markdown {
+  margin: 16px 0;
+  line-height: 1.7;
+  color: #374151;
+  font-size: 15px;
+
+  :deep(p) {
+    margin: 8px 0;
+  }
 }
 </style>

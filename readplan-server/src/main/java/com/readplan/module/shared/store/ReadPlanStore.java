@@ -7,6 +7,7 @@ import com.readplan.common.exception.BusinessException;
 import com.readplan.common.security.CurrentUser;
 import com.readplan.module.shared.payload.ReadPlanPayloads.AdminImportCandidate;
 import com.readplan.module.shared.payload.ReadPlanPayloads.BookDetail;
+import com.readplan.module.shared.payload.ReadPlanPayloads.DashboardStat;
 import com.readplan.module.shared.payload.ReadPlanPayloads.BookSummary;
 import com.readplan.module.shared.payload.ReadPlanPayloads.CommentItem;
 import com.readplan.module.shared.payload.ReadPlanPayloads.PublicNote;
@@ -927,6 +928,24 @@ public class ReadPlanStore {
 
     private String toRoleName(Integer role) {
         return Objects.equals(role, 1) ? "ADMIN" : "USER";
+    }
+
+    public List<DashboardStat> getDashboardStats() {
+        Long booksCount = bookMapper.selectCount(
+            Wrappers.<BookEntity>lambdaQuery().eq(BookEntity::getDeleted, 0)
+        );
+        Long notesCount = noteMapper.selectCount(
+            Wrappers.<NoteEntity>lambdaQuery().eq(NoteEntity::getDeleted, 0)
+        );
+        Long plansCount = readingPlanMapper.selectCount(
+            Wrappers.<ReadingPlanEntity>lambdaQuery().eq(ReadingPlanEntity::getDeleted, 0)
+        );
+
+        return List.of(
+            new DashboardStat("已入库书籍", String.valueOf(booksCount == null ? 0 : booksCount), "支持前台浏览、后台导入和软删除。"),
+            new DashboardStat("公开笔记", String.valueOf(notesCount == null ? 0 : notesCount), "所有读书笔记默认公开可见，可继续扩展评论流。"),
+            new DashboardStat("活跃阅读计划", String.valueOf(plansCount == null ? 0 : plansCount), "阅读状态分为未开始、阅读中、已读完。")
+        );
     }
 
     public record UserState(Long id, String username, String password, String nickname, String role) {

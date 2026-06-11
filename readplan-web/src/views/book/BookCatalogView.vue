@@ -2,27 +2,52 @@
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import { getBookCatalog } from '@/api/book/book';
+import { getDashboardStats } from '@/api/dashboard/dashboard';
 import BookCardGrid from '@/components/book/BookCardGrid.vue';
 import AppPage from '@/components/common/AppPage.vue';
-import { dashboardStats } from '@/mocks/readplan';
 import { ROUTE_NAMES } from '@/constants/routeNames';
-import type { BookSummary } from '@/types/readplan';
+import type { BookSummary, DashboardStat } from '@/types/readplan';
 
 const router = useRouter();
 const keyword = shallowRef('');
 const loading = shallowRef(false);
 const books = ref<BookSummary[]>([]);
+const statsList = ref<DashboardStat[]>([]);
 
-const visibleBooksLabel = computed(() => `${books.value.length} 本书`);
+const pageNum = ref(1);
+const pageSize = ref(8);
+const total = ref(0);
+
+const visibleBooksLabel = computed(() => `${total.value} 本书`);
+
+const loadStats = async () => {
+  try {
+    statsList.value = await getDashboardStats();
+  } catch (error) {
+    console.error('Failed to load dashboard stats:', error);
+  }
+};
 
 const loadBooks = async () => {
   loading.value = true;
 
   try {
-    books.value = await getBookCatalog(keyword.value);
+    const res = await getBookCatalog(keyword.value, pageNum.value, pageSize.value);
+    books.value = res.records;
+    total.value = res.total;
   } finally {
     loading.value = false;
   }
+};
+
+const handlePageChange = (page: number) => {
+  pageNum.value = page;
+  void loadBooks();
+};
+
+const handleSearch = () => {
+  pageNum.value = 1;
+  void loadBooks();
 };
 
 const openBookDetail = async (bookId: string) => {
@@ -33,6 +58,7 @@ const openBookDetail = async (bookId: string) => {
 };
 
 onMounted(() => {
+  void loadStats();
   void loadBooks();
 });
 </script>
@@ -44,7 +70,7 @@ onMounted(() => {
     </template>
 
     <section class="hero-stats">
-      <article v-for="stat in dashboardStats" :key="stat.label" class="hero-stats__card">
+      <article v-for="stat in statsList" :key="stat.label" class="hero-stats__card">
         <p>{{ stat.label }}</p>
         <strong>{{ stat.value }}</strong>
         <span>{{ stat.hint }}</span>
@@ -57,14 +83,25 @@ onMounted(() => {
           v-model="keyword"
           clearable
           placeholder="搜索书名、作者或标签"
-          @keyup.enter="loadBooks"
+          @keyup.enter="handleSearch"
         />
-        <el-button :loading="loading" type="primary" @click="loadBooks">搜索</el-button>
+        <el-button :loading="loading" type="primary" @click="handleSearch">搜索</el-button>
       </div>
     </el-card>
 
     <BookCardGrid v-if="books.length" :books="books" @select="openBookDetail" />
     <el-empty v-else description="当前没有匹配的书籍。" />
+
+    <div v-if="total > pageSize" class="pagination-container">
+      <el-pagination
+        :current-page="pageNum"
+        :page-size="pageSize"
+        :total="total"
+        layout="prev, pager, next"
+        background
+        @current-change="handlePageChange"
+      />
+    </div>
   </AppPage>
 </template>
 
@@ -103,6 +140,12 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
 }
 
 @media (width <= 640px) {

@@ -101,16 +101,24 @@ const normalizeBookDetail = (payload: BookDetailPayload): BookDetail => ({
   })),
 });
 
-export const getBookCatalog = async (keyword = ''): Promise<BookSummary[]> => {
+export const getBookCatalog = async (
+  keyword = '',
+  pageNum = 1,
+  pageSize = 8,
+): Promise<PageResult<BookSummary>> => {
   const { data } = await request.get<ApiResponse<PageResult<BookSummaryPayload>>>('/books', {
     params: {
       keyword,
-      pageNum: 1,
-      pageSize: 20,
+      pageNum,
+      pageSize,
     },
   });
 
-  return data.data.records.map(normalizeBookSummary);
+  return {
+    total: data.data.total,
+    pages: data.data.pages,
+    records: data.data.records.map(normalizeBookSummary),
+  };
 };
 
 export const getBookDetail = async (bookId: string): Promise<BookDetail> => {

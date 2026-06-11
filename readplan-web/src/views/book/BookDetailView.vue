@@ -93,6 +93,16 @@ onMounted(() => {
             </div>
           </section>
 
+          <section v-if="detail.fileUrl && detail.fileType === 'PDF'" class="detail-pdf-viewer">
+            <header class="detail-pdf-viewer__header">
+              <h2>在线阅读</h2>
+              <p>您可以在下方直接预览与阅读该 PDF 书籍。</p>
+            </header>
+            <div class="pdf-iframe-container">
+              <iframe :src="detail.fileUrl" class="pdf-iframe" title="PDF Reader"></iframe>
+            </div>
+          </section>
+
           <section class="detail-notes">
             <header class="detail-notes__header">
               <div>
@@ -165,6 +175,39 @@ onMounted(() => {
 
 .detail-notes {
   padding: 24px;
+}
+
+.detail-pdf-viewer {
+  border: 1px solid var(--page-border);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 86%);
+  box-shadow: var(--page-shadow);
+  padding: 24px;
+}
+
+.detail-pdf-viewer__header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.detail-pdf-viewer__header p {
+  margin-top: 8px;
+  margin-bottom: 16px;
+  color: var(--page-muted);
+}
+
+.pdf-iframe-container {
+  width: 100%;
+  height: 680px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.pdf-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .detail-notes__header h2 {

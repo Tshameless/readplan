@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NoteCommentPanel from '@/components/comment/NoteCommentPanel.vue';
+import { renderMarkdown } from '@/utils/markdown';
 import type { PublicNote } from '@/types/readplan';
 
 defineProps<{
@@ -17,7 +18,7 @@ defineProps<{
         </div>
         <el-tag type="warning">评论 {{ note.commentCount }}</el-tag>
       </div>
-      <p class="note-card__content">{{ note.contentPreview }}</p>
+      <div class="note-card__content markdown-content" v-html="renderMarkdown(note.contentPreview)"></div>
       <NoteCommentPanel :note-id="note.id" />
     </article>
 
@@ -55,5 +56,15 @@ defineProps<{
   margin: 8px 0 0;
   color: var(--page-muted);
   line-height: 1.7;
+}
+
+.markdown-content {
+  margin: 12px 0;
+  color: #374151;
+  font-size: 15px;
+
+  :deep(p) {
+    margin: 6px 0;
+  }
 }
 </style>

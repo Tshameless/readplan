@@ -103,4 +103,11 @@ public final class ReadPlanPayloads {
         Boolean selected
     ) {
     }
+
+    public record DashboardStat(
+        String label,
+        String value,
+        String hint
+    ) {
+    }
 }
