@@ -61,6 +61,7 @@ public class ReadPlanStore {
     private final CommentMapper commentMapper;
     private final ImportCandidateMapper importCandidateMapper;
     private final BookCrawlerClient bookCrawlerClient;
+    private final BookPdfCrawlerService bookPdfCrawlerService;
     private final PasswordEncoder passwordEncoder;
     private final Path bookStorageDir;
 
@@ -72,6 +73,7 @@ public class ReadPlanStore {
         CommentMapper commentMapper,
         ImportCandidateMapper importCandidateMapper,
         BookCrawlerClient bookCrawlerClient,
+        BookPdfCrawlerService bookPdfCrawlerService,
         PasswordEncoder passwordEncoder,
         @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
     ) {
@@ -82,6 +84,7 @@ public class ReadPlanStore {
         this.commentMapper = commentMapper;
         this.importCandidateMapper = importCandidateMapper;
         this.bookCrawlerClient = bookCrawlerClient;
+        this.bookPdfCrawlerService = bookPdfCrawlerService;
         this.passwordEncoder = passwordEncoder;
         this.bookStorageDir = Path.of(bookStorageDir).toAbsolutePath().normalize();
     }
@@ -366,6 +369,12 @@ public class ReadPlanStore {
         book.setUpdatedAt(LocalDateTime.now());
         bookMapper.updateById(book);
         return toBookSummary(book);
+    }
+
+    public void triggerPdfCrawl(Long bookId) {
+        // Verify the book exists
+        requireBook(bookId);
+        bookPdfCrawlerService.crawlAndDownloadPdfAsync(bookId);
     }
 
     @Transactional
@@ -912,6 +921,9 @@ public class ReadPlanStore {
     private String toFileUrl(String filePath) {
         if (!hasText(filePath)) {
             return "";
+        }
+        if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+            return filePath;
         }
         return "/files/books/" + filePath;
     }

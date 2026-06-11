@@ -15,6 +15,8 @@ import com.readplan.module.shared.store.mapper.ReadingPlanMapper;
 import com.readplan.module.shared.store.mapper.UserMapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.nio.file.Path;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,7 +36,9 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
     private final CommentMapper commentMapper;
     private final ImportCandidateMapper importCandidateMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final BookPdfCrawlerService bookPdfCrawlerService;
     private final PasswordEncoder passwordEncoder;
+    private final Path bookStorageDir;
 
     public ReadPlanDataSeeder(
         UserMapper userMapper,
@@ -44,7 +48,9 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         CommentMapper commentMapper,
         ImportCandidateMapper importCandidateMapper,
         JdbcTemplate jdbcTemplate,
-        PasswordEncoder passwordEncoder
+        BookPdfCrawlerService bookPdfCrawlerService,
+        PasswordEncoder passwordEncoder,
+        @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
     ) {
         this.userMapper = userMapper;
         this.bookMapper = bookMapper;
@@ -53,7 +59,9 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         this.commentMapper = commentMapper;
         this.importCandidateMapper = importCandidateMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.bookPdfCrawlerService = bookPdfCrawlerService;
         this.passwordEncoder = passwordEncoder;
+        this.bookStorageDir = Path.of(bookStorageDir).toAbsolutePath().normalize();
     }
 
     @Override
@@ -195,6 +203,8 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
             "领域驱动设计候选数据。",
             "架构,DDD"
         );
+
+        autoSeedPdfUrls();
     }
 
     private void repairSeedState() {
@@ -229,6 +239,30 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
             "领域驱动设计候选数据。",
             "架构,DDD"
         );
+
+        autoSeedPdfUrls();
+    }
+
+    private void autoSeedPdfUrls() {
+        try {
+            // Clean up any old blocked raw.githubusercontent.com file paths
+            jdbcTemplate.execute("UPDATE book SET file_path = '', file_type = '' WHERE file_path LIKE '%raw.githubusercontent.com%'");
+
+            // Auto-trigger background crawl for seeded books
+            triggerAutoCrawl(1L);
+            triggerAutoCrawl(2L);
+            triggerAutoCrawl(3L);
+        } catch (Exception e) {
+            System.err.println("Auto-seeding / crawling demo PDF URLs failed: " + e.getMessage());
+        }
+    }
+
+    private void triggerAutoCrawl(Long bookId) {
+        BookEntity book = bookMapper.selectById(bookId);
+        if (book != null && (book.getFilePath() == null || book.getFilePath().isBlank())) {
+            System.out.println("Auto-triggering background crawl for book: " + book.getTitle());
+            bookPdfCrawlerService.crawlAndDownloadPdfAsync(bookId);
+        }
     }
 
     private UserEntity createUser(String username, String rawPassword, String nickname, Integer role) {

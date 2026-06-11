@@ -66,6 +66,16 @@ const buildFallbackCover = (title: string): string => {
 const normalizeBookSummary = (payload: BookSummaryPayload): BookSummary => {
   const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
   const backendBase = apiBase.replace(/\/api$/, '');
+  
+  let fileUrl = '';
+  if (payload.fileUrl) {
+    if (payload.fileUrl.startsWith('http://') || payload.fileUrl.startsWith('https://')) {
+      fileUrl = payload.fileUrl;
+    } else {
+      fileUrl = `${backendBase}${payload.fileUrl}`;
+    }
+  }
+
   return {
     id: String(payload.id),
     title: payload.title,
@@ -78,7 +88,7 @@ const normalizeBookSummary = (payload: BookSummaryPayload): BookSummary => {
     isbn: payload.isbn,
     olId: payload.olId,
     fileType: payload.fileType,
-    fileUrl: payload.fileUrl ? `${backendBase}${payload.fileUrl}` : '',
+    fileUrl: fileUrl,
   };
 };
 
@@ -201,4 +211,9 @@ export const uploadBookFile = async (bookId: string, file: File): Promise<BookSu
     },
   });
   return normalizeBookSummary(data.data);
+};
+
+export const crawlBookPdf = async (bookId: string): Promise<{ message: string }> => {
+  const { data } = await request.post<ApiResponse<{ message: string }>>(`/books/${bookId}/crawl-pdf`);
+  return data.data;
 };
