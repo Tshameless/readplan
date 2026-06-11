@@ -57,7 +57,8 @@ public class SecurityConfig {
                     "/api/auth/**",
                     "/v3/api-docs/**",
                     "/doc.html",
-                    "/swagger-ui/**"
+                    "/swagger-ui/**",
+                    "/files/books/**"
                 )
                 .permitAll()
                 .requestMatchers(HttpMethod.GET,

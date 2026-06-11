@@ -65,6 +65,7 @@ onMounted(() => {
               <div class="detail-panel__metrics">
                 <el-tag effect="dark" type="warning">阅读计划 {{ detail.planCount }}</el-tag>
                 <el-tag>公开笔记 {{ detail.noteCount }}</el-tag>
+                <el-tag v-if="detail.fileType" type="success">{{ detail.fileType }}</el-tag>
               </div>
               <div v-if="userStore.isAuthenticated" class="detail-panel__actions">
                 <el-select v-model="planStatus" style="width: 160px">
@@ -73,6 +74,11 @@ onMounted(() => {
                   <el-option :value="2" label="已读完" />
                 </el-select>
                 <el-button :loading="joining" type="primary" @click="joinPlan">加入阅读计划</el-button>
+              </div>
+              <div v-if="detail.fileUrl" class="detail-panel__actions">
+                <el-button :href="detail.fileUrl" tag="a" target="_blank" type="success">
+                  打开原文件
+                </el-button>
               </div>
               <p><strong>作者：</strong>{{ detail.author }}</p>
               <p><strong>出版年份：</strong>{{ detail.publishYear }}</p>

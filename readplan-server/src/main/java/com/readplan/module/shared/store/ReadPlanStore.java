@@ -25,14 +25,28 @@ import com.readplan.module.shared.store.mapper.ImportCandidateMapper;
 import com.readplan.module.shared.store.mapper.NoteMapper;
 import com.readplan.module.shared.store.mapper.ReadingPlanMapper;
 import com.readplan.module.shared.store.mapper.UserMapper;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Component
 public class ReadPlanStore {
@@ -45,7 +59,9 @@ public class ReadPlanStore {
     private final NoteMapper noteMapper;
     private final CommentMapper commentMapper;
     private final ImportCandidateMapper importCandidateMapper;
+    private final BookCrawlerClient bookCrawlerClient;
     private final PasswordEncoder passwordEncoder;
+    private final Path bookStorageDir;
 
     public ReadPlanStore(
         UserMapper userMapper,
@@ -54,7 +70,9 @@ public class ReadPlanStore {
         NoteMapper noteMapper,
         CommentMapper commentMapper,
         ImportCandidateMapper importCandidateMapper,
-        PasswordEncoder passwordEncoder
+        BookCrawlerClient bookCrawlerClient,
+        PasswordEncoder passwordEncoder,
+        @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
     ) {
         this.userMapper = userMapper;
         this.bookMapper = bookMapper;
@@ -62,7 +80,9 @@ public class ReadPlanStore {
         this.noteMapper = noteMapper;
         this.commentMapper = commentMapper;
         this.importCandidateMapper = importCandidateMapper;
+        this.bookCrawlerClient = bookCrawlerClient;
         this.passwordEncoder = passwordEncoder;
+        this.bookStorageDir = Path.of(bookStorageDir).toAbsolutePath().normalize();
     }
 
     @Transactional
@@ -149,6 +169,8 @@ public class ReadPlanStore {
             isTrue(book.getImported()),
             defaultString(book.getIsbn()),
             defaultString(book.getOlId()),
+            defaultString(book.getFileType()),
+            toFileUrl(book.getFilePath()),
             notes.size(),
             (int) planCount,
             notes
@@ -183,6 +205,40 @@ public class ReadPlanStore {
     }
 
     @Transactional
+    public List<AdminImportCandidate> crawlImportCandidates(String keyword) {
+        if (!hasText(keyword)) {
+            throw new BusinessException(400, "抓取关键字不能为空");
+        }
+
+        List<CrawlBookCandidate> crawled = bookCrawlerClient.search(keyword.trim(), 12);
+        List<AdminImportCandidate> results = new java.util.ArrayList<>();
+        for (int index = 0; index < crawled.size(); index++) {
+            CrawlBookCandidate candidate = crawled.get(index);
+            String olId = hasText(candidate.olId()) ? candidate.olId() : "CRAWL-" + System.currentTimeMillis() + "-" + index;
+            ImportCandidateEntity entity = new ImportCandidateEntity();
+            entity.setOlId(olId);
+            entity.setTitle(candidate.title());
+            entity.setAuthor(defaultString(candidate.author()));
+            entity.setFirstPublishYear(defaultNumber(candidate.publishYear()));
+            entity.setCover(defaultString(candidate.cover()));
+            entity.setIsbn(defaultString(candidate.isbn()));
+            entity.setDescription(defaultString(candidate.description()));
+            entity.setTags(joinTags(candidate.tags(), "抓取导入"));
+            importCandidateMapper.deleteById(olId);
+            importCandidateMapper.insert(entity);
+            results.add(new AdminImportCandidate(
+                olId,
+                candidate.title(),
+                defaultString(candidate.author()),
+                defaultNumber(candidate.publishYear()),
+                defaultString(candidate.cover()),
+                false
+            ));
+        }
+        return results;
+    }
+
+    @Transactional
     public List<BookSummary> importBooks(List<String> olIds) {
         if (olIds == null || olIds.isEmpty()) {
             throw new BusinessException(400, "请先选择要导入的书籍");
@@ -208,10 +264,14 @@ public class ReadPlanStore {
             book.setAuthor(defaultString(candidate.getAuthor()));
             book.setCover(defaultString(candidate.getCover()));
             book.setPublishYear(defaultNumber(candidate.getFirstPublishYear()));
-            book.setIsbn("");
+            book.setIsbn(defaultString(candidate.getIsbn()));
             book.setOlId(candidate.getOlId());
-            book.setDescription("来自 Open Library 检索结果，等待管理员补充 ISBN、简介等本地字段。");
-            book.setTags("待完善");
+            book.setDescription(hasText(candidate.getDescription())
+                ? candidate.getDescription()
+                : "来自 Open Library 检索结果，等待管理员补充 ISBN、简介等本地字段。");
+            book.setTags(hasText(candidate.getTags()) ? candidate.getTags() : "抓取导入,待完善");
+            book.setFilePath("");
+            book.setFileType("");
             book.setImported(1);
             book.setDeleted(0);
             book.setCreatedAt(now);
@@ -231,7 +291,35 @@ public class ReadPlanStore {
         Integer publishYear,
         String isbn,
         String olId,
-        String description
+        String description,
+        List<String> tags
+    ) {
+        return createBook(
+            title,
+            author,
+            cover,
+            publishYear,
+            isbn,
+            olId,
+            description,
+            tags,
+            "",
+            ""
+        );
+    }
+
+    @Transactional
+    public BookSummary createBook(
+        String title,
+        String author,
+        String cover,
+        Integer publishYear,
+        String isbn,
+        String olId,
+        String description,
+        List<String> tags,
+        String filePath,
+        String fileType
     ) {
         LocalDateTime now = LocalDateTime.now();
         BookEntity book = new BookEntity();
@@ -242,7 +330,9 @@ public class ReadPlanStore {
         book.setIsbn(defaultString(isbn));
         book.setOlId(defaultString(olId));
         book.setDescription(defaultString(description));
-        book.setTags("手动录入");
+        book.setTags(joinTags(tags, "手动录入"));
+        book.setFilePath(defaultString(filePath));
+        book.setFileType(defaultString(fileType));
         book.setImported(1);
         book.setDeleted(0);
         book.setCreatedAt(now);
@@ -260,7 +350,8 @@ public class ReadPlanStore {
         Integer publishYear,
         String isbn,
         String olId,
-        String description
+        String description,
+        List<String> tags
     ) {
         BookEntity book = requireBook(id);
         book.setTitle(title);
@@ -270,9 +361,34 @@ public class ReadPlanStore {
         book.setIsbn(defaultString(isbn));
         book.setOlId(defaultString(olId));
         book.setDescription(defaultString(description));
+        book.setTags(joinTags(tags, "手动录入"));
         book.setUpdatedAt(LocalDateTime.now());
         bookMapper.updateById(book);
         return toBookSummary(book);
+    }
+
+    @Transactional
+    public List<BookSummary> importBooksFromFile(MultipartFile file, String tags) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "上传文件不能为空");
+        }
+
+        String filename = defaultString(file.getOriginalFilename()).toLowerCase();
+        try {
+            if (filename.endsWith(".json")) {
+                return importBooksFromJson(file.getInputStream(), tags);
+            }
+            if (filename.endsWith(".csv")) {
+                return importBooksFromCsv(file.getInputStream(), tags);
+            }
+            if (filename.endsWith(".pdf")) {
+                return List.of(importBookFromPdf(file, tags));
+            }
+        } catch (IOException exception) {
+            throw new BusinessException(400, "读取上传文件失败");
+        }
+
+        throw new BusinessException(400, "仅支持上传 csv、json 或 pdf 文件");
     }
 
     @Transactional
@@ -551,7 +667,9 @@ public class ReadPlanStore {
             splitTags(book.getTags()),
             isTrue(book.getImported()),
             defaultString(book.getIsbn()),
-            defaultString(book.getOlId())
+            defaultString(book.getOlId()),
+            defaultString(book.getFileType()),
+            toFileUrl(book.getFilePath())
         );
     }
 
@@ -613,6 +731,170 @@ public class ReadPlanStore {
             .map(String::trim)
             .filter(value -> !value.isEmpty())
             .toList();
+    }
+
+    private String joinTags(List<String> tags, String fallback) {
+        Set<String> values = new LinkedHashSet<>();
+        if (tags != null) {
+            values.addAll(tags.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toList()));
+        }
+        if (values.isEmpty() && hasText(fallback)) {
+            values.add(fallback);
+        }
+        return String.join(",", values);
+    }
+
+    private List<BookSummary> importBooksFromCsv(InputStream inputStream, String tags) throws IOException {
+        List<BookSummary> imported = new java.util.ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line = reader.readLine();
+            if (line == null) {
+                return imported;
+            }
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                String[] parts = line.split(",", -1);
+                if (parts.length < 6) {
+                    continue;
+                }
+                imported.add(createBook(
+                    parts[0].trim(),
+                    parts[1].trim(),
+                    parts[2].trim(),
+                    parseInteger(parts[3]),
+                    parts[4].trim(),
+                    parts[5].trim(),
+                    parts.length > 6 ? parts[6].trim() : "",
+                    mergeTags(tags, parts.length > 7 ? parts[7] : "")
+                ));
+            }
+        }
+        return imported;
+    }
+
+    private List<BookSummary> importBooksFromJson(InputStream inputStream, String tags) throws IOException {
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(inputStream);
+        List<BookSummary> imported = new java.util.ArrayList<>();
+        if (root == null || !root.isArray()) {
+            return imported;
+        }
+        for (com.fasterxml.jackson.databind.JsonNode item : root) {
+            imported.add(createBook(
+                item.path("title").asText(""),
+                item.path("author").asText(""),
+                item.path("cover").asText(""),
+                parseInteger(item.path("publishYear").asText("0")),
+                item.path("isbn").asText(""),
+                item.path("olId").asText(""),
+                item.path("description").asText(""),
+                mergeTags(tags, item.path("tags").isArray()
+                    ? joinTags(jsonTags(item.path("tags")), "")
+                    : item.path("tags").asText(""))
+            ));
+        }
+        return imported;
+    }
+
+    private BookSummary importBookFromPdf(MultipartFile file, String tags) throws IOException {
+        String originalFilename = defaultString(file.getOriginalFilename());
+        String storedFilename = buildStoredFilename(originalFilename, "pdf");
+        Files.createDirectories(bookStorageDir);
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.copy(inputStream, bookStorageDir.resolve(storedFilename), StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        return createBook(
+            extractDisplayTitle(originalFilename),
+            "",
+            "",
+            0,
+            "",
+            "",
+            "本地 PDF 文件上传，可在后台继续补充作者、出版年份和简介。",
+            mergeTags(tags, "本地文件,PDF"),
+            storedFilename,
+            "PDF"
+        );
+    }
+
+    private String buildStoredFilename(String originalFilename, String extension) {
+        String safeBaseName = sanitizeFilename(stripFileExtension(originalFilename));
+        if (!hasText(safeBaseName)) {
+            safeBaseName = "book-file";
+        }
+        return UUID.randomUUID() + "-" + safeBaseName + "." + extension;
+    }
+
+    private String extractDisplayTitle(String originalFilename) {
+        String title = stripFileExtension(originalFilename).replace('_', ' ').trim();
+        return hasText(title) ? title : "未命名书籍";
+    }
+
+    private String stripFileExtension(String filename) {
+        String value = defaultString(filename).trim();
+        int dotIndex = value.lastIndexOf('.');
+        if (dotIndex <= 0) {
+            return value;
+        }
+        return value.substring(0, dotIndex);
+    }
+
+    private String sanitizeFilename(String filename) {
+        return defaultString(filename)
+            .replaceAll("[\\\\/:*?\"<>|]", "-")
+            .replaceAll("\\s+", "-")
+            .replaceAll("-{2,}", "-")
+            .trim();
+    }
+
+    private List<String> jsonTags(com.fasterxml.jackson.databind.JsonNode tagsNode) {
+        List<String> values = new java.util.ArrayList<>();
+        for (com.fasterxml.jackson.databind.JsonNode item : tagsNode) {
+            String value = item.asText("").trim();
+            if (!value.isBlank()) {
+                values.add(value);
+            }
+        }
+        return values;
+    }
+
+    private List<String> mergeTags(String globalTags, String localTags) {
+        List<String> merged = new java.util.ArrayList<>();
+        merged.addAll(splitFlexibleTags(globalTags));
+        merged.addAll(splitFlexibleTags(localTags));
+        return merged;
+    }
+
+    private List<String> splitFlexibleTags(String raw) {
+        if (!hasText(raw)) {
+            return List.of();
+        }
+        return Arrays.stream(raw.split("[,|/;，；、]"))
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .toList();
+    }
+
+    private String toFileUrl(String filePath) {
+        if (!hasText(filePath)) {
+            return "";
+        }
+        return "/files/books/" + filePath;
+    }
+
+    private Integer parseInteger(String value) {
+        try {
+            return Integer.parseInt(defaultString(value).trim());
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
     }
 
     private String format(LocalDateTime value) {

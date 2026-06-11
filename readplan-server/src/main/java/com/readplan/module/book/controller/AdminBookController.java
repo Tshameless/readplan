@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/admin/books")
@@ -37,9 +39,22 @@ public class AdminBookController {
         return ApiResponse.success(readPlanStore.searchImportCandidates(keyword));
     }
 
+    @GetMapping("/crawl")
+    public ApiResponse<List<AdminImportCandidate>> crawlCandidates(@RequestParam(defaultValue = "") String keyword) {
+        return ApiResponse.success(readPlanStore.crawlImportCandidates(keyword));
+    }
+
     @PostMapping("/import")
     public ApiResponse<List<BookSummary>> importFromOpenLibrary(@Valid @RequestBody ImportRequest request) {
         return ApiResponse.success(readPlanStore.importBooks(request.olIds()));
+    }
+
+    @PostMapping("/upload")
+    public ApiResponse<List<BookSummary>> uploadBooks(
+        @RequestPart("file") MultipartFile file,
+        @RequestParam(value = "tags", required = false) String tags
+    ) {
+        return ApiResponse.success(readPlanStore.importBooksFromFile(file, tags));
     }
 
     @PostMapping
@@ -51,7 +66,8 @@ public class AdminBookController {
             request.publishYear(),
             request.isbn(),
             request.olId(),
-            request.description()
+            request.description(),
+            request.tags()
         ));
     }
 
@@ -65,7 +81,8 @@ public class AdminBookController {
             request.publishYear(),
             request.isbn(),
             request.olId(),
-            request.description()
+            request.description(),
+            request.tags()
         ));
     }
 
@@ -85,7 +102,8 @@ public class AdminBookController {
         Integer publishYear,
         String isbn,
         String olId,
-        String description
+        String description,
+        List<String> tags
     ) {
     }
 }

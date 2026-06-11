@@ -20,6 +20,8 @@ public class BookEntity {
     private String olId;
     private String description;
     private String tags;
+    private String filePath;
+    private String fileType;
     private Integer imported;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

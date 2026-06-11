@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
     private final NoteMapper noteMapper;
     private final CommentMapper commentMapper;
     private final ImportCandidateMapper importCandidateMapper;
+    private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
 
     public ReadPlanDataSeeder(
@@ -41,6 +43,7 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         NoteMapper noteMapper,
         CommentMapper commentMapper,
         ImportCandidateMapper importCandidateMapper,
+        JdbcTemplate jdbcTemplate,
         PasswordEncoder passwordEncoder
     ) {
         this.userMapper = userMapper;
@@ -49,12 +52,16 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         this.noteMapper = noteMapper;
         this.commentMapper = commentMapper;
         this.importCandidateMapper = importCandidateMapper;
+        this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        upgradeBookSchema();
+        upgradeImportCandidateSchema();
+
         Long userCount = userMapper.selectCount(Wrappers.<UserEntity>lambdaQuery().eq(UserEntity::getDeleted, 0));
         if (userCount != null && userCount > 0) {
             repairSeedState();
@@ -173,14 +180,20 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
             "Refactoring",
             "Martin Fowler",
             1999,
-            "https://covers.openlibrary.org/b/id/11153256-L.jpg"
+            "https://covers.openlibrary.org/b/id/11153256-L.jpg",
+            "9780201485677",
+            "重构经典书籍候选数据。",
+            "重构,经典"
         );
         createImportCandidate(
             "OL45883W",
             "Domain-Driven Design",
             "Eric Evans",
             2003,
-            "https://covers.openlibrary.org/b/id/12615128-L.jpg"
+            "https://covers.openlibrary.org/b/id/12615128-L.jpg",
+            "9780321125217",
+            "领域驱动设计候选数据。",
+            "架构,DDD"
         );
     }
 
@@ -201,14 +214,20 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
             "Refactoring",
             "Martin Fowler",
             1999,
-            "https://covers.openlibrary.org/b/id/11153256-L.jpg"
+            "https://covers.openlibrary.org/b/id/11153256-L.jpg",
+            "9780201485677",
+            "重构经典书籍候选数据。",
+            "重构,经典"
         );
         ensureImportCandidate(
             "OL45883W",
             "Domain-Driven Design",
             "Eric Evans",
             2003,
-            "https://covers.openlibrary.org/b/id/12615128-L.jpg"
+            "https://covers.openlibrary.org/b/id/12615128-L.jpg",
+            "9780321125217",
+            "领域驱动设计候选数据。",
+            "架构,DDD"
         );
     }
 
@@ -247,6 +266,8 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         entity.setOlId(olId);
         entity.setDescription(description);
         entity.setTags(tags);
+        entity.setFilePath("");
+        entity.setFileType("");
         entity.setImported(imported);
         entity.setDeleted(0);
         entity.setCreatedAt(now);
@@ -290,21 +311,91 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
         commentMapper.insert(entity);
     }
 
-    private void createImportCandidate(String olId, String title, String author, Integer firstPublishYear, String cover) {
+    private void createImportCandidate(
+        String olId,
+        String title,
+        String author,
+        Integer firstPublishYear,
+        String cover,
+        String isbn,
+        String description,
+        String tags
+    ) {
         ImportCandidateEntity entity = new ImportCandidateEntity();
         entity.setOlId(olId);
         entity.setTitle(title);
         entity.setAuthor(author);
         entity.setFirstPublishYear(firstPublishYear);
         entity.setCover(cover);
+        entity.setIsbn(isbn);
+        entity.setDescription(description);
+        entity.setTags(tags);
         importCandidateMapper.insert(entity);
     }
 
-    private void ensureImportCandidate(String olId, String title, String author, Integer firstPublishYear, String cover) {
-        if (importCandidateMapper.selectById(olId) != null) {
+    private void ensureImportCandidate(
+        String olId,
+        String title,
+        String author,
+        Integer firstPublishYear,
+        String cover,
+        String isbn,
+        String description,
+        String tags
+    ) {
+        ImportCandidateEntity entity = importCandidateMapper.selectById(olId);
+        if (entity != null) {
+            boolean changed = false;
+            if (!isbn.equals(entity.getIsbn())) {
+                entity.setIsbn(isbn);
+                changed = true;
+            }
+            if (!description.equals(entity.getDescription())) {
+                entity.setDescription(description);
+                changed = true;
+            }
+            if (!tags.equals(entity.getTags())) {
+                entity.setTags(tags);
+                changed = true;
+            }
+            if (changed) {
+                importCandidateMapper.updateById(entity);
+            }
             return;
         }
-        createImportCandidate(olId, title, author, firstPublishYear, cover);
+        createImportCandidate(olId, title, author, firstPublishYear, cover, isbn, description, tags);
+    }
+
+    private void upgradeImportCandidateSchema() {
+        ensureImportCandidateColumn("isbn", "ALTER TABLE import_candidate ADD COLUMN isbn VARCHAR(20)");
+        ensureImportCandidateColumn("description", "ALTER TABLE import_candidate ADD COLUMN description TEXT");
+        ensureImportCandidateColumn("tags", "ALTER TABLE import_candidate ADD COLUMN tags VARCHAR(255)");
+    }
+
+    private void upgradeBookSchema() {
+        ensureTableColumn("book", "file_path", "ALTER TABLE book ADD COLUMN file_path VARCHAR(500)");
+        ensureTableColumn("book", "file_type", "ALTER TABLE book ADD COLUMN file_type VARCHAR(20)");
+    }
+
+    private void ensureImportCandidateColumn(String columnName, String ddl) {
+        ensureTableColumn("import_candidate", columnName, ddl);
+    }
+
+    private void ensureTableColumn(String tableName, String columnName, String ddl) {
+        Integer count = jdbcTemplate.queryForObject(
+            """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE LOWER(table_name) = ?
+                  AND LOWER(column_name) = ?
+                """,
+            Integer.class,
+            tableName.toLowerCase(),
+            columnName.toLowerCase()
+        );
+        if (count == null || count == 0) {
+            jdbcTemplate.execute(ddl);
+        }
     }
 
     private LocalDateTime parse(String value) {

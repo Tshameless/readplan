@@ -2,23 +2,29 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
+  crawlBooksFromOpenLibrary,
   createBook,
   deleteBook,
   getAdminBooks,
   importBooksFromOpenLibrary,
   searchOpenLibraryBooks,
   updateBook,
+  uploadBooksFromFile,
   type SaveBookPayload,
 } from '@/api/book/book';
 import AppPage from '@/components/common/AppPage.vue';
 import type { AdminImportCandidate, BookSummary } from '@/types/readplan';
 
 const loading = shallowRef(false);
+const crawlLoading = shallowRef(false);
 const importLoading = shallowRef(false);
+const uploadLoading = shallowRef(false);
 const saveLoading = shallowRef(false);
 const deletingId = shallowRef('');
 const dialogOpen = shallowRef(false);
 const importKeyword = shallowRef('java');
+const uploadTagText = shallowRef('');
+const selectedUploadFile = shallowRef<File | null>(null);
 const candidates = ref<AdminImportCandidate[]>([]);
 const localBooks = ref<BookSummary[]>([]);
 const editingBook = shallowRef<BookSummary | null>(null);
@@ -30,9 +36,17 @@ const form = reactive<SaveBookPayload>({
   isbn: '',
   olId: '',
   description: '',
+  tags: [],
 });
 
 const selectedCount = computed(() => candidates.value.filter((item) => item.selected).length);
+const tagOptions = computed(() => Array.from(new Set(localBooks.value.flatMap((book) => book.tags))));
+
+const parseTagInput = (value: string): string[] =>
+  value
+    .split(/[,|/;，；、]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 const loadLocalBooks = async () => {
   localBooks.value = await getAdminBooks();
@@ -45,6 +59,17 @@ const searchCandidates = async () => {
     candidates.value = await searchOpenLibraryBooks(importKeyword.value);
   } finally {
     loading.value = false;
+  }
+};
+
+const crawlCandidates = async () => {
+  crawlLoading.value = true;
+
+  try {
+    candidates.value = await crawlBooksFromOpenLibrary(importKeyword.value);
+    ElMessage.success(`已抓取 ${candidates.value.length} 条候选书籍。`);
+  } finally {
+    crawlLoading.value = false;
   }
 };
 
@@ -79,6 +104,7 @@ const openCreateDialog = () => {
     isbn: '',
     olId: '',
     description: '',
+    tags: [],
   });
   dialogOpen.value = true;
 };
@@ -93,6 +119,7 @@ const openEditDialog = (book: BookSummary) => {
     isbn: book.isbn ?? '',
     olId: book.olId ?? '',
     description: book.description,
+    tags: [...book.tags],
   });
   dialogOpen.value = true;
 };
@@ -136,13 +163,36 @@ const handleDeleteBook = async (bookId: string) => {
   }
 };
 
+const handleFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  selectedUploadFile.value = input.files?.[0] ?? null;
+};
+
+const handleUploadBooks = async () => {
+  if (!selectedUploadFile.value) {
+    ElMessage.warning('请先选择 csv、json 或 pdf 文件。');
+    return;
+  }
+
+  uploadLoading.value = true;
+  try {
+    const imported = await uploadBooksFromFile(selectedUploadFile.value, parseTagInput(uploadTagText.value));
+    await loadLocalBooks();
+    selectedUploadFile.value = null;
+    uploadTagText.value = '';
+    ElMessage.success(`已导入 ${imported.length} 本书。`);
+  } finally {
+    uploadLoading.value = false;
+  }
+};
+
 onMounted(() => {
   void Promise.all([searchCandidates(), loadLocalBooks()]);
 });
 </script>
 
 <template>
-  <AppPage title="后台管理" description="管理员可以检索导入候选书籍，并维护本地书库。">
+  <AppPage title="后台管理" description="管理员可以抓取、上传并维护本地书库。">
     <template #actions>
       <el-button type="primary" @click="openCreateDialog">手动新增书籍</el-button>
     </template>
@@ -151,8 +201,8 @@ onMounted(() => {
       <template #header>
         <div class="admin-section__header">
           <div>
-            <h2>Open Library 导入</h2>
-            <p>先搜索，再选择候选书籍导入到本地书库。</p>
+            <h2>抓取候选书籍</h2>
+            <p>支持读取本地候选数据，也支持在线抓取 Open Library 结果后再导入。</p>
           </div>
           <el-tag type="warning">已选 {{ selectedCount }}</el-tag>
         </div>
@@ -165,7 +215,8 @@ onMounted(() => {
           placeholder="输入关键字搜索待导入书籍"
           @keyup.enter="searchCandidates"
         />
-        <el-button :loading="loading" type="primary" @click="searchCandidates">搜索</el-button>
+        <el-button :loading="loading" type="primary" @click="searchCandidates">读取候选</el-button>
+        <el-button :loading="crawlLoading" @click="crawlCandidates">在线抓取</el-button>
         <el-button :loading="importLoading" @click="importSelectedBooks">导入所选</el-button>
       </div>
 
@@ -186,6 +237,36 @@ onMounted(() => {
       <template #header>
         <div class="admin-section__header">
           <div>
+            <h2>本地文件上传导入</h2>
+            <p>支持上传 `csv`、`json` 或 `pdf` 文件，导入时可追加全局标签。</p>
+          </div>
+        </div>
+      </template>
+
+      <div class="upload-panel">
+        <input accept=".csv,.json,.pdf,application/json,text/csv,application/pdf" type="file" @change="handleFileChange" />
+        <el-input
+          v-model="uploadTagText"
+          clearable
+          placeholder="可选：输入全局标签，使用逗号分隔"
+        />
+        <el-button :loading="uploadLoading" type="primary" @click="handleUploadBooks">上传并导入</el-button>
+      </div>
+      <p class="upload-help">
+        CSV 表头示例：`title,author,cover,publishYear,isbn,olId,description,tags`
+      </p>
+      <p class="upload-help">
+        JSON 示例：`[{ "title": "DDD", "author": "Eric Evans", "tags": ["架构","设计"] }]`
+      </p>
+      <p class="upload-help">
+        PDF 会直接作为本地书籍文件入库，默认用文件名生成书名，之后可在下方继续补充作者和简介。
+      </p>
+    </el-card>
+
+    <el-card class="admin-section" shadow="never">
+      <template #header>
+        <div class="admin-section__header">
+          <div>
             <h2>本地书库</h2>
             <p>支持编辑书籍信息和软删除下架。</p>
           </div>
@@ -196,6 +277,21 @@ onMounted(() => {
         <el-table-column label="书名" min-width="220" prop="title" />
         <el-table-column label="作者" min-width="180" prop="author" />
         <el-table-column label="年份" min-width="100" prop="publishYear" />
+        <el-table-column label="标签" min-width="200">
+          <template #default="{ row }">
+            <div class="tag-list">
+              <el-tag v-for="tag in row.tags" :key="tag" effect="plain" size="small">{{ tag }}</el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="原文件" min-width="140">
+          <template #default="{ row }">
+            <el-link v-if="row.fileUrl" :href="row.fileUrl" target="_blank" type="primary">
+              {{ row.fileType || '查看文件' }}
+            </el-link>
+            <span v-else class="file-empty">无</span>
+          </template>
+        </el-table-column>
         <el-table-column label="简介" min-width="260" prop="description" />
         <el-table-column label="操作" min-width="160">
           <template #default="{ row }">
@@ -237,6 +333,19 @@ onMounted(() => {
             <el-input v-model="form.cover" />
           </el-form-item>
         </div>
+        <el-form-item label="标签">
+          <el-select
+            v-model="form.tags"
+            allow-create
+            clearable
+            default-first-option
+            filterable
+            multiple
+            style="width: 100%"
+          >
+            <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="简介">
           <el-input v-model="form.description" :rows="4" type="textarea" />
         </el-form-item>
@@ -269,7 +378,7 @@ onMounted(() => {
 
 .admin-toolbar {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 12px;
 }
 
@@ -313,10 +422,33 @@ onMounted(() => {
   color: var(--page-muted);
 }
 
+.upload-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-help {
+  margin: 12px 0 0;
+  color: var(--page-muted);
+  font-size: 13px;
+}
+
 .table-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-empty {
+  color: var(--page-muted);
 }
 
 .form-grid {
@@ -327,6 +459,7 @@ onMounted(() => {
 
 @media (width <= 760px) {
   .admin-toolbar,
+  .upload-panel,
   .form-grid {
     grid-template-columns: 1fr;
   }

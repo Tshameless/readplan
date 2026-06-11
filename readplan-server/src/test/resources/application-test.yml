@@ -18,3 +18,5 @@ readplan:
   security:
     jwt-secret: test-readplan-jwt-secret-2026-for-integration
     jwt-expire-minutes: 120
+  storage:
+    book-dir: ./target/test-book-storage

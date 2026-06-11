@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS `book` (
     ol_id VARCHAR(100),
     description TEXT,
     tags VARCHAR(255),
+    file_path VARCHAR(500),
+    file_type VARCHAR(20),
     imported TINYINT DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -68,5 +70,8 @@ CREATE TABLE IF NOT EXISTS `import_candidate` (
     title VARCHAR(255) NOT NULL,
     author VARCHAR(100),
     first_publish_year INT,
-    cover VARCHAR(500)
+    cover VARCHAR(500),
+    isbn VARCHAR(20),
+    description TEXT,
+    tags VARCHAR(255)
 );

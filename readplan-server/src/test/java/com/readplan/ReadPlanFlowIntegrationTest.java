@@ -3,6 +3,7 @@ package com.readplan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.readplan.common.api.ApiResponse;
 import com.readplan.support.ApiResponseType;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -19,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -124,6 +127,90 @@ class ReadPlanFlowIntegrationTest {
         mockMvc.perform(delete("/api/plans/" + newPlanId)
                 .header("Authorization", bearer(readerToken)))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanUploadBooksFromJsonFileWithTags() throws Exception {
+        String adminToken = login("admin", "123456");
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "books.json",
+            MediaType.APPLICATION_JSON_VALUE,
+            """
+                [
+                  {
+                    "title": "领域驱动设计精粹",
+                    "author": "Vaughn Vernon",
+                    "publishYear": 2017,
+                    "isbn": "9787111544937",
+                    "description": "测试上传",
+                    "tags": ["架构", "DDD"]
+                  }
+                ]
+                """.getBytes(StandardCharsets.UTF_8)
+        );
+
+        JsonNode imported = api(mockMvc.perform(multipart("/api/admin/books/upload")
+                .file(file)
+                .param("tags", "上传导入,后端")
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk()))
+            .data();
+
+        assertThat(imported.isArray()).isTrue();
+        assertThat(imported).hasSize(1);
+        assertThat(imported.get(0).path("title").asText()).isEqualTo("领域驱动设计精粹");
+        assertThat(imported.get(0).path("tags").toString()).contains("上传导入");
+        assertThat(imported.get(0).path("tags").toString()).contains("DDD");
+    }
+
+    @Test
+    void adminCanImportCandidateWithStoredMetadata() throws Exception {
+        String adminToken = login("admin", "123456");
+
+        JsonNode imported = api(mockMvc.perform(post("/api/admin/books/import")
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "olIds": ["OL45883W"]
+                    }
+                    """))
+            .andExpect(status().isOk()))
+            .data();
+
+        assertThat(imported.isArray()).isTrue();
+        assertThat(imported).hasSize(1);
+        assertThat(imported.get(0).path("title").asText()).isEqualTo("Domain-Driven Design");
+        assertThat(imported.get(0).path("isbn").asText()).isEqualTo("9780321125217");
+        assertThat(imported.get(0).path("description").asText()).contains("候选数据");
+        assertThat(imported.get(0).path("tags").toString()).contains("DDD");
+    }
+
+    @Test
+    void adminCanUploadPdfBookFile() throws Exception {
+        String adminToken = login("admin", "123456");
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "Clean Architecture.pdf",
+            MediaType.APPLICATION_PDF_VALUE,
+            "%PDF-1.4 test".getBytes(StandardCharsets.UTF_8)
+        );
+
+        JsonNode imported = api(mockMvc.perform(multipart("/api/admin/books/upload")
+                .file(file)
+                .param("tags", "上传导入,电子书")
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk()))
+            .data();
+
+        assertThat(imported.isArray()).isTrue();
+        assertThat(imported).hasSize(1);
+        assertThat(imported.get(0).path("title").asText()).isEqualTo("Clean Architecture");
+        assertThat(imported.get(0).path("fileType").asText()).isEqualTo("PDF");
+        assertThat(imported.get(0).path("fileUrl").asText()).contains("/files/books/");
+        assertThat(imported.get(0).path("tags").toString()).contains("电子书");
+        assertThat(imported.get(0).path("description").asText()).contains("本地 PDF");
     }
 
     private String login(String username, String password) throws Exception {

@@ -26,6 +26,8 @@ export interface BookSummary {
   imported: boolean;
   isbn?: string;
   olId?: string;
+  fileType?: string;
+  fileUrl?: string;
 }
 
 export interface BookDetail extends BookSummary {

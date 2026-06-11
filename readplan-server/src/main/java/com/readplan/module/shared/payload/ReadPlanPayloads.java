@@ -29,7 +29,9 @@ public final class ReadPlanPayloads {
         List<String> tags,
         Boolean imported,
         String isbn,
-        String olId
+        String olId,
+        String fileType,
+        String fileUrl
     ) {
     }
 
@@ -54,6 +56,8 @@ public final class ReadPlanPayloads {
         Boolean imported,
         String isbn,
         String openLibraryId,
+        String fileType,
+        String fileUrl,
         Integer noteCount,
         Integer planCount,
         List<PublicNote> notes

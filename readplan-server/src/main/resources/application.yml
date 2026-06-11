@@ -32,3 +32,5 @@ readplan:
   security:
     jwt-secret: please-change-me-readplan-jwt-secret-2026
     jwt-expire-minutes: 120
+  storage:
+    book-dir: ./storage/books

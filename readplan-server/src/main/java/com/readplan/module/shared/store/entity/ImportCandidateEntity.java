@@ -14,4 +14,7 @@ public class ImportCandidateEntity {
     private String author;
     private Integer firstPublishYear;
     private String cover;
+    private String isbn;
+    private String description;
+    private String tags;
 }

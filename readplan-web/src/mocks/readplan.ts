@@ -35,6 +35,8 @@ export const books: BookSummary[] = [
     description: '围绕 Java 语言设计、对象创建、泛型与并发的经典实践指南。',
     tags: ['Java', '后端', '经典'],
     imported: true,
+    fileType: '',
+    fileUrl: '',
   },
   {
     id: '2',
@@ -45,6 +47,8 @@ export const books: BookSummary[] = [
     description: '以代码可读性、命名、函数和边界设计为核心的软件工程入门书。',
     tags: ['工程', '重构'],
     imported: true,
+    fileType: '',
+    fileUrl: '',
   },
   {
     id: '3',
@@ -55,6 +59,8 @@ export const books: BookSummary[] = [
     description: '面向分布式系统、存储引擎和数据一致性的系统设计读物。',
     tags: ['架构', '数据库'],
     imported: true,
+    fileType: '',
+    fileUrl: '',
   },
   {
     id: '4',
@@ -65,6 +71,8 @@ export const books: BookSummary[] = [
     description: '强调持续反馈、自动化和工程判断力的通用开发方法论。',
     tags: ['工程', '方法论'],
     imported: false,
+    fileType: '',
+    fileUrl: '',
   },
 ];
 
