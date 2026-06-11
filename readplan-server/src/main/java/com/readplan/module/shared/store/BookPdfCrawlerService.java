@@ -291,11 +291,15 @@ public class BookPdfCrawlerService {
                 "curl",
                 "-k", // Allow insecure connections if mirror certs are not trusted
                 "-L", // Follow redirects
+                "-sS", // Silent mode but show errors
+                "--connect-timeout", "15", // Connection timeout in seconds
+                "-m", "60", // Max transfer time in seconds
                 "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
                 "-o", targetPath.toAbsolutePath().toString(),
                 url
             );
-            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            pb.redirectError(ProcessBuilder.Redirect.DISCARD);
             Process process = pb.start();
             int exitCode = process.waitFor();
             if (exitCode == 0) {

@@ -62,6 +62,7 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/files/books/**",
                     "/api/books/*/crawl-pdf",
+                    "/favicon.ico",
                     "/error"
                 )
                 .permitAll()
