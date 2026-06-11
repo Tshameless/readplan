@@ -1,0 +1,9 @@
+/outputs/
+/work/
+/readplan-server/target/
+/readplan-server/.idea/
+/readplan-web/node_modules/
+/readplan-web/dist/
+/readplan-web/.idea/
+*.log
+Thumbs.db

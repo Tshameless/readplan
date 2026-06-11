@@ -1,0 +1,12 @@
+import 'vue-router';
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string;
+    requiresAuth?: boolean;
+    hidden?: boolean;
+    requiredPermission?: string | string[];
+  }
+}
+
+export {};

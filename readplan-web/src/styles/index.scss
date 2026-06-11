@@ -1,0 +1,35 @@
+@use './variables';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at top, rgb(252 191 73 / 25%), transparent 28%),
+    linear-gradient(180deg, #f9f5ef 0%, #eef3f7 100%);
+  color: var(--page-text);
+  font-family:
+    Aptos,
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
