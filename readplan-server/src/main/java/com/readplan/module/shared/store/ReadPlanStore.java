@@ -369,6 +369,32 @@ public class ReadPlanStore {
     }
 
     @Transactional
+    public BookSummary uploadBookFile(Long id, MultipartFile file) {
+        BookEntity book = requireBook(id);
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "文件不能为空");
+        }
+        String originalFilename = defaultString(file.getOriginalFilename());
+        if (!originalFilename.toLowerCase().endsWith(".pdf")) {
+            throw new BusinessException(400, "仅支持上传 PDF 文件");
+        }
+        try {
+            String storedFilename = buildStoredFilename(originalFilename, "pdf");
+            Files.createDirectories(bookStorageDir);
+            try (InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, bookStorageDir.resolve(storedFilename), StandardCopyOption.REPLACE_EXISTING);
+            }
+            book.setFilePath(storedFilename);
+            book.setFileType("PDF");
+            book.setUpdatedAt(LocalDateTime.now());
+            bookMapper.updateById(book);
+            return toBookSummary(book);
+        } catch (IOException exception) {
+            throw new BusinessException(500, "保存文件失败: " + exception.getMessage());
+        }
+    }
+
+    @Transactional
     public List<BookSummary> importBooksFromFile(MultipartFile file, String tags) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "上传文件不能为空");

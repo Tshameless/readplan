@@ -35,6 +35,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleUnknownException(Exception exception) {
-        return ApiResponse.failure(500, "服务器内部异常");
+        exception.printStackTrace();
+        return ApiResponse.failure(500, "服务器内部异常: " + exception.getClass().getSimpleName() + " - " + exception.getMessage());
     }
 }

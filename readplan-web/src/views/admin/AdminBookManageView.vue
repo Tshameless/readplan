@@ -10,6 +10,7 @@ import {
   searchOpenLibraryBooks,
   updateBook,
   uploadBooksFromFile,
+  uploadBookFile,
   type SaveBookPayload,
 } from '@/api/book/book';
 import AppPage from '@/components/common/AppPage.vue';
@@ -27,7 +28,9 @@ const uploadTagText = shallowRef('');
 const selectedUploadFile = shallowRef<File | null>(null);
 const candidates = ref<AdminImportCandidate[]>([]);
 const localBooks = ref<BookSummary[]>([]);
-const editingBook = shallowRef<BookSummary | null>(null);
+const editingBook = ref<BookSummary | null>(null);
+const dialogUploadLoading = shallowRef(false);
+const selectedDialogFile = shallowRef<File | null>(null);
 const form = reactive<SaveBookPayload>({
   title: '',
   author: '',
@@ -95,6 +98,7 @@ const importSelectedBooks = async () => {
 };
 
 const openCreateDialog = () => {
+  selectedDialogFile.value = null;
   editingBook.value = null;
   Object.assign(form, {
     title: '',
@@ -110,6 +114,7 @@ const openCreateDialog = () => {
 };
 
 const openEditDialog = (book: BookSummary) => {
+  selectedDialogFile.value = null;
   editingBook.value = book;
   Object.assign(form, {
     title: book.title,
@@ -122,6 +127,30 @@ const openEditDialog = (book: BookSummary) => {
     tags: [...book.tags],
   });
   dialogOpen.value = true;
+};
+
+const handleDialogFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  selectedDialogFile.value = input.files?.[0] ?? null;
+};
+
+const handleUploadDialogFile = async () => {
+  if (!editingBook.value || !selectedDialogFile.value) {
+    return;
+  }
+
+  dialogUploadLoading.value = true;
+  try {
+    const updatedBook = await uploadBookFile(editingBook.value.id, selectedDialogFile.value);
+    localBooks.value = localBooks.value.map((book) => book.id === updatedBook.id ? updatedBook : book);
+    editingBook.value = updatedBook;
+    selectedDialogFile.value = null;
+    ElMessage.success('PDF 文件已成功关联。');
+  } catch (error) {
+    console.error(error);
+  } finally {
+    dialogUploadLoading.value = false;
+  }
 };
 
 const handleSaveBook = async () => {
@@ -349,6 +378,31 @@ onMounted(() => {
         <el-form-item label="简介">
           <el-input v-model="form.description" :rows="4" type="textarea" />
         </el-form-item>
+        <el-form-item v-if="editingBook" label="附加 PDF 书籍文件">
+          <div class="dialog-file-upload">
+            <div class="current-file">
+              <span v-if="editingBook.fileUrl">
+                已关联文件:
+                <el-link :href="editingBook.fileUrl" target="_blank" type="success">
+                  {{ editingBook.fileType || '查看文件' }}
+                </el-link>
+              </span>
+              <span v-else class="no-file">当前未关联文件</span>
+            </div>
+            <div class="upload-actions">
+              <input type="file" accept=".pdf" @change="handleDialogFileChange" />
+              <el-button
+                v-if="selectedDialogFile"
+                :loading="dialogUploadLoading"
+                size="small"
+                type="success"
+                @click="handleUploadDialogFile"
+              >
+                上传并关联 PDF
+              </el-button>
+            </div>
+          </div>
+        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -455,6 +509,27 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.dialog-file-upload {
+  border: 1px dashed var(--page-border);
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  display: grid;
+  gap: 10px;
+
+  .current-file {
+    font-size: 13px;
+    color: var(--page-muted);
+  }
+
+  .upload-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
 }
 
 @media (width <= 760px) {

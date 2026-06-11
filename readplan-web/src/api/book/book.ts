@@ -189,3 +189,14 @@ export const uploadBooksFromFile = async (file: File, tags: string[]): Promise<B
   });
   return data.data.map(normalizeBookSummary);
 };
+
+export const uploadBookFile = async (bookId: string, file: File): Promise<BookSummary> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await request.post<ApiResponse<BookSummaryPayload>>(`/admin/books/${bookId}/file`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return normalizeBookSummary(data.data);
+};

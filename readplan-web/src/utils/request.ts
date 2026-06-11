@@ -23,35 +23,37 @@ request.interceptors.request.use((config) => {
   return config;
 });
 
+const handleAuthError = async (code: number, msg: string) => {
+  if (code === 401) {
+    clearAuthToken();
+    useUserStore(pinia).clearSession();
+    usePermissionStore(pinia).clearPermissions();
+    message.warning(msg || '登录已失效，请重新登录。');
+    if (router.currentRoute.value.path !== LOGIN_PATH) {
+      await router.push(LOGIN_PATH);
+    }
+  } else if (code === 403) {
+    message.warning(msg || '当前账号没有访问权限。');
+    await router.push({ name: 'Forbidden' });
+  } else {
+    message.error(msg || '请求失败，请稍后重试。');
+  }
+};
+
 request.interceptors.response.use(
-  (response) => response,
+  async (response) => {
+    const res = response.data;
+    if (res && typeof res.code === 'number' && res.code !== 200) {
+      await handleAuthError(res.code, res.message);
+      return Promise.reject(new Error(res.message || '请求失败'));
+    }
+    return response;
+  },
   async (error) => {
     const status = error.response?.status as number | undefined;
     const backendMessage = error.response?.data?.message as string | undefined;
 
-    if (status === 401) {
-      clearAuthToken();
-      useUserStore(pinia).clearSession();
-      usePermissionStore(pinia).clearPermissions();
-      message.warning(backendMessage ?? '登录已失效，请重新登录。');
-      if (router.currentRoute.value.path !== LOGIN_PATH) {
-        await router.push(LOGIN_PATH);
-      }
-      return Promise.reject(error);
-    }
-
-    if (status === 403) {
-      message.warning(backendMessage ?? '当前账号没有访问权限。');
-      await router.push({ name: 'Forbidden' });
-      return Promise.reject(error);
-    }
-
-    if (status === 404) {
-      message.error(backendMessage ?? '接口不存在，请检查请求地址。');
-      return Promise.reject(error);
-    }
-
-    message.error(backendMessage ?? error.message ?? '请求失败，请稍后重试。');
+    await handleAuthError(status || 500, backendMessage || error.message);
     return Promise.reject(error);
   },
 );

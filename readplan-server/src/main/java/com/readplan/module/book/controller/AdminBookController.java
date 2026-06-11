@@ -57,6 +57,14 @@ public class AdminBookController {
         return ApiResponse.success(readPlanStore.importBooksFromFile(file, tags));
     }
 
+    @PostMapping("/{id}/file")
+    public ApiResponse<BookSummary> uploadFile(
+        @PathVariable Long id,
+        @RequestPart("file") MultipartFile file
+    ) {
+        return ApiResponse.success(readPlanStore.uploadBookFile(id, file));
+    }
+
     @PostMapping
     public ApiResponse<BookSummary> create(@Valid @RequestBody SaveBookRequest request) {
         return ApiResponse.success(readPlanStore.createBook(
