@@ -19,7 +19,7 @@ public class WebStorageConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path storagePath = Path.of(bookStorageProperties.bookDir()).toAbsolutePath().normalize();
-        String resourceLocation = storagePath.toUri().toString();
+        String resourceLocation = "file:" + storagePath.toString().replace("\\", "/");
         if (!resourceLocation.endsWith("/")) {
             resourceLocation = resourceLocation + "/";
         }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue';
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute } from 'vue-router';
 import { getBookDetail } from '@/api/book/book';
@@ -15,6 +15,23 @@ const loading = shallowRef(false);
 const joining = shallowRef(false);
 const planStatus = shallowRef<0 | 1 | 2>(1);
 const detail = shallowRef<BookDetail | null>(null);
+
+const isFullscreen = ref(false);
+
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value;
+  if (isFullscreen.value) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+};
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && isFullscreen.value) {
+    toggleFullscreen();
+  }
+};
 
 const loadDetail = async () => {
   loading.value = true;
@@ -44,6 +61,12 @@ const joinPlan = async () => {
 
 onMounted(() => {
   void loadDetail();
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+  document.body.style.overflow = '';
 });
 </script>
 
@@ -95,11 +118,38 @@ onMounted(() => {
 
           <section v-if="detail.fileUrl && detail.fileType === 'PDF'" class="detail-pdf-viewer">
             <header class="detail-pdf-viewer__header">
-              <h2>在线阅读</h2>
+              <div class="detail-pdf-viewer__title-row">
+                <h2>在线阅读</h2>
+                <div class="detail-pdf-viewer__actions">
+                  <el-button type="primary" @click="toggleFullscreen">
+                    <template #icon>
+                      <icon-ep-full-screen />
+                    </template>
+                    网页全屏
+                  </el-button>
+                  <el-button :href="detail.fileUrl" tag="a" target="_blank" type="info">
+                    <template #icon>
+                      <icon-ep-share />
+                    </template>
+                    在新窗口打开
+                  </el-button>
+                </div>
+              </div>
               <p>您可以在下方直接预览与阅读该 PDF 书籍。</p>
             </header>
-            <div class="pdf-iframe-container">
+            <div :class="['pdf-iframe-container', { 'is-fullscreen': isFullscreen }]">
               <iframe :src="detail.fileUrl" class="pdf-iframe" title="PDF Reader"></iframe>
+              <el-button
+                v-if="isFullscreen"
+                class="fullscreen-exit-btn"
+                type="danger"
+                circle
+                @click="toggleFullscreen"
+              >
+                <template #icon>
+                  <icon-ep-close />
+                </template>
+              </el-button>
             </div>
           </section>
 
@@ -185,6 +235,19 @@ onMounted(() => {
   padding: 24px;
 }
 
+.detail-pdf-viewer__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.detail-pdf-viewer__actions {
+  display: flex;
+  gap: 10px;
+}
+
 .detail-pdf-viewer__header h2 {
   margin: 0;
   font-size: 24px;
@@ -202,12 +265,40 @@ onMounted(() => {
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.08);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.is-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    border-radius: 0;
+    border: none;
+    background: #000;
+  }
 }
 
 .pdf-iframe {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+.fullscreen-exit-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-size: 20px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .detail-notes__header h2 {

@@ -51,6 +51,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint(restAuthenticationEntryPoint)
                 .accessDeniedHandler(restAccessDeniedHandler)
             )
+            .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
             .authorizeHttpRequests(registry -> registry
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
@@ -59,7 +60,8 @@ public class SecurityConfig {
                     "/v3/api-docs/**",
                     "/doc.html",
                     "/swagger-ui/**",
-                    "/files/books/**"
+                    "/files/books/**",
+                    "/error"
                 )
                 .permitAll()
                 .requestMatchers(HttpMethod.GET,

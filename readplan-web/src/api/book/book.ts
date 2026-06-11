@@ -63,20 +63,24 @@ const buildFallbackCover = (title: string): string => {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
-const normalizeBookSummary = (payload: BookSummaryPayload): BookSummary => ({
-  id: String(payload.id),
-  title: payload.title,
-  author: payload.author,
-  cover: payload.cover || buildFallbackCover(payload.title),
-  publishYear: payload.publishYear,
-  description: payload.description,
-  tags: payload.tags,
-  imported: payload.imported,
-  isbn: payload.isbn,
-  olId: payload.olId,
-  fileType: payload.fileType,
-  fileUrl: payload.fileUrl,
-});
+const normalizeBookSummary = (payload: BookSummaryPayload): BookSummary => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+  const backendBase = apiBase.replace(/\/api$/, '');
+  return {
+    id: String(payload.id),
+    title: payload.title,
+    author: payload.author,
+    cover: payload.cover || buildFallbackCover(payload.title),
+    publishYear: payload.publishYear,
+    description: payload.description,
+    tags: payload.tags,
+    imported: payload.imported,
+    isbn: payload.isbn,
+    olId: payload.olId,
+    fileType: payload.fileType,
+    fileUrl: payload.fileUrl ? `${backendBase}${payload.fileUrl}` : '',
+  };
+};
 
 const normalizeImportCandidate = (payload: AdminImportCandidatePayload): AdminImportCandidate => ({
   ...payload,
@@ -87,8 +91,6 @@ const normalizeBookDetail = (payload: BookDetailPayload): BookDetail => ({
   ...normalizeBookSummary(payload),
   isbn: payload.isbn,
   openLibraryId: payload.openLibraryId,
-  fileType: payload.fileType,
-  fileUrl: payload.fileUrl,
   noteCount: payload.noteCount,
   planCount: payload.planCount,
   notes: payload.notes.map((note) => ({
