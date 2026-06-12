@@ -538,13 +538,194 @@ onMounted(() => {
         <el-button @click="dialogOpen = false">取消</el-button>
         <el-button :loading="saveLoading" type="primary" @click="handleSaveBook">保存</el-button>
       </template>
+    </el-dialog>
+  </AppPage>
+</template>
 
-  .upload-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+<style scoped lang="scss">
+.admin-section {
+  margin-bottom: 24px;
+}
+
+.admin-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
   }
+
+  p {
+    margin: 0;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+  }
+}
+
+.admin-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.legal-toolbar {
+  grid-template-columns: 1fr auto auto auto auto;
+}
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.legal-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.candidate-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-bg-color-page);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+  }
+}
+
+.candidate-card__checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.candidate-card__cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--el-fill-color-light);
+}
+
+.candidate-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.candidate-card__description {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.upload-panel {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.upload-help {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.dialog-file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.current-file {
+  font-size: 13px;
+}
+
+.no-file {
+  color: var(--el-text-color-placeholder);
+}
+
+.empty-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.resource-tip-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed var(--el-color-warning-light-5);
+  border-radius: 8px;
+  background: var(--el-color-warning-light-9);
+}
+
+.resource-tip-panel__title {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--el-color-warning-dark-2);
+}
+
+.resource-tip-panel__text {
+  margin: 0 0 12px;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.resource-tip-panel__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.file-empty {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+}
+
+.upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 @media (width <= 760px) {
