@@ -409,6 +409,8 @@ public class ReadPlanDataSeeder implements ApplicationRunner {
     private void upgradeBookSchema() {
         ensureTableColumn("book", "file_path", "ALTER TABLE book ADD COLUMN file_path VARCHAR(500)");
         ensureTableColumn("book", "file_type", "ALTER TABLE book ADD COLUMN file_type VARCHAR(20)");
+        
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS book_file (book_id BIGINT PRIMARY KEY, file_content LONGBLOB)");
     }
 
     private void ensureImportCandidateColumn(String columnName, String ddl) {

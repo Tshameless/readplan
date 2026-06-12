@@ -109,65 +109,32 @@ public class BookPdfCrawlerService {
             return;
         }
 
-        // Try downloading each url until one succeeds
+        // Try validating each url until one succeeds
         boolean success = false;
         for (String downloadUrl : urlsToTry) {
             try {
-                Files.createDirectories(bookStorageDir);
-                String safeTitle = book.getTitle().replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-                String storedFilename = UUID.randomUUID() + "-" + safeTitle + ".pdf";
-                Path targetPath = bookStorageDir.resolve(storedFilename);
-
-                System.out.println("Trying to download PDF from " + downloadUrl + " to " + targetPath);
+                System.out.println("Trying to validate PDF from " + downloadUrl);
                 
-                // 1. Try system curl first as it uses native OS SSL stack and handles proxies/redirects/TLS extremely reliably
-                boolean curlSuccess = downloadWithCurl(downloadUrl, targetPath);
-                
-                // 2. Fallback to Java HttpClient if curl fails
-                if (!curlSuccess) {
-                    System.out.println("Curl download failed, falling back to Java HttpClient for: " + downloadUrl);
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(downloadUrl))
-                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-                            .timeout(Duration.ofSeconds(45))
-                            .GET()
-                            .build();
-
-                    HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
-                    if (response.statusCode() == 200) {
-                        Optional<String> contentTypeOpt = response.headers().firstValue("Content-Type");
-                        if (contentTypeOpt.isPresent() && !contentTypeOpt.get().toLowerCase().contains("pdf") && !downloadUrl.endsWith(".pdf")) {
-                            System.err.println("Warning: Candidate url " + downloadUrl + " did not return PDF content type. Skipping.");
-                            continue;
-                        }
-
-                        try (InputStream is = response.body()) {
-                            Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                        }
-                        curlSuccess = true;
-                    } else {
-                        System.err.println("Java HttpClient URL returned HTTP status " + response.statusCode() + ": " + downloadUrl);
-                    }
-                }
-
-                if (curlSuccess) {
-                    // Update DB
-                    book.setFilePath(storedFilename);
-                    book.setFileType("PDF");
+                boolean isValid = validatePdfUrl(downloadUrl);
+                if (isValid) {
+                    // Update DB with URL directly
+                    book.setFilePath(downloadUrl);
+                    book.setFileType("URL");
                     book.setUpdatedAt(LocalDateTime.now());
                     bookMapper.updateById(book);
-                    System.out.println("Successfully downloaded and associated PDF for book: " + book.getTitle() + " from: " + downloadUrl);
+                    System.out.println("Successfully found and associated PDF URL for book: " + book.getTitle() + " from: " + downloadUrl);
                     success = true;
                     break;
+                } else {
+                    System.err.println("URL validation failed (not a PDF): " + downloadUrl);
                 }
             } catch (Exception e) {
-                System.err.println("Failed to download from " + downloadUrl + ". Error: " + e.getMessage());
+                System.err.println("Failed to validate " + downloadUrl + ". Error: " + e.getMessage());
             }
         }
 
         if (!success) {
-            System.err.println("All download attempts failed for book: " + book.getTitle());
+            System.err.println("All download url attempts failed for book: " + book.getTitle());
         }
     }
 
@@ -284,39 +251,5 @@ public class BookPdfCrawlerService {
         return false;
     }
 
-    private boolean downloadWithCurl(String url, Path targetPath) {
-        try {
-            System.out.println("Using system curl to download: " + url);
-            ProcessBuilder pb = new ProcessBuilder(
-                "curl",
-                "-k", // Allow insecure connections if mirror certs are not trusted
-                "-L", // Follow redirects
-                "-sS", // Silent mode but show errors
-                "--connect-timeout", "15", // Connection timeout in seconds
-                "-m", "60", // Max transfer time in seconds
-                "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-                "-o", targetPath.toAbsolutePath().toString(),
-                url
-            );
-            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-            pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-            Process process = pb.start();
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                // Verify the file was created and is not empty (at least 1KB)
-                if (Files.exists(targetPath) && Files.size(targetPath) > 1024) {
-                    System.out.println("System curl download completed successfully for: " + url);
-                    return true;
-                } else {
-                    System.err.println("Warning: Downloaded file is too small or does not exist after curl download.");
-                    Files.deleteIfExists(targetPath);
-                }
-            } else {
-                System.err.println("Curl failed with exit code: " + exitCode);
-            }
-        } catch (Exception e) {
-            System.err.println("Curl execution failed: " + e.getMessage());
-        }
-        return false;
-    }
+
 }

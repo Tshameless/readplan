@@ -63,6 +63,7 @@ public class ReadPlanStore {
     private final BookCrawlerClient bookCrawlerClient;
     private final BookPdfCrawlerService bookPdfCrawlerService;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final Path bookStorageDir;
 
     public ReadPlanStore(
@@ -75,6 +76,7 @@ public class ReadPlanStore {
         BookCrawlerClient bookCrawlerClient,
         BookPdfCrawlerService bookPdfCrawlerService,
         PasswordEncoder passwordEncoder,
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
         @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
     ) {
         this.userMapper = userMapper;
@@ -86,6 +88,7 @@ public class ReadPlanStore {
         this.bookCrawlerClient = bookCrawlerClient;
         this.bookPdfCrawlerService = bookPdfCrawlerService;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
         this.bookStorageDir = Path.of(bookStorageDir).toAbsolutePath().normalize();
     }
 
@@ -388,12 +391,10 @@ public class ReadPlanStore {
             throw new BusinessException(400, "仅支持上传 PDF 文件");
         }
         try {
-            String storedFilename = buildStoredFilename(originalFilename, "pdf");
-            Files.createDirectories(bookStorageDir);
-            try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, bookStorageDir.resolve(storedFilename), StandardCopyOption.REPLACE_EXISTING);
-            }
-            book.setFilePath(storedFilename);
+            byte[] fileContent = file.getBytes();
+            saveBookFileToDb(id, fileContent);
+            
+            book.setFilePath("db:" + id);
             book.setFileType("PDF");
             book.setUpdatedAt(LocalDateTime.now());
             bookMapper.updateById(book);
@@ -840,13 +841,9 @@ public class ReadPlanStore {
 
     private BookSummary importBookFromPdf(MultipartFile file, String tags) throws IOException {
         String originalFilename = defaultString(file.getOriginalFilename());
-        String storedFilename = buildStoredFilename(originalFilename, "pdf");
-        Files.createDirectories(bookStorageDir);
-        try (InputStream inputStream = file.getInputStream()) {
-            Files.copy(inputStream, bookStorageDir.resolve(storedFilename), StandardCopyOption.REPLACE_EXISTING);
-        }
+        byte[] fileContent = file.getBytes();
 
-        return createBook(
+        BookSummary summary = createBook(
             extractDisplayTitle(originalFilename),
             "",
             "",
@@ -855,9 +852,17 @@ public class ReadPlanStore {
             "",
             "本地 PDF 文件上传，可在后台继续补充作者、出版年份和简介。",
             mergeTags(tags, "本地文件,PDF"),
-            storedFilename,
+            "",
             "PDF"
         );
+        
+        saveBookFileToDb(summary.id(), fileContent);
+        
+        BookEntity book = bookMapper.selectById(summary.id());
+        book.setFilePath("db:" + summary.id());
+        bookMapper.updateById(book);
+        
+        return toBookSummary(book);
     }
 
     private String buildStoredFilename(String originalFilename, String extension) {
@@ -925,7 +930,19 @@ public class ReadPlanStore {
         if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
             return filePath;
         }
+        if (filePath.startsWith("db:")) {
+            return "/files/books/db/" + filePath.substring(3);
+        }
         return "/files/books/" + filePath;
+    }
+
+    private void saveBookFileToDb(Long bookId, byte[] content) {
+        Long exists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM book_file WHERE book_id = ?", Long.class, bookId);
+        if (exists != null && exists > 0) {
+            jdbcTemplate.update("UPDATE book_file SET file_content = ? WHERE book_id = ?", content, bookId);
+        } else {
+            jdbcTemplate.update("INSERT INTO book_file (book_id, file_content) VALUES (?, ?)", bookId, content);
+        }
     }
 
     private Integer parseInteger(String value) {
