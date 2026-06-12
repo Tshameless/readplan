@@ -63,7 +63,6 @@ public class ReadPlanStore {
     private final ImportCandidateMapper importCandidateMapper;
     private final BookCrawlerClient bookCrawlerClient;
     private final LegalBookResourceClient legalBookResourceClient;
-    private final BookPdfCrawlerService bookPdfCrawlerService;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final Path bookStorageDir;
@@ -77,7 +76,6 @@ public class ReadPlanStore {
         ImportCandidateMapper importCandidateMapper,
         BookCrawlerClient bookCrawlerClient,
         LegalBookResourceClient legalBookResourceClient,
-        BookPdfCrawlerService bookPdfCrawlerService,
         PasswordEncoder passwordEncoder,
         org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
         @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
@@ -90,7 +88,6 @@ public class ReadPlanStore {
         this.importCandidateMapper = importCandidateMapper;
         this.bookCrawlerClient = bookCrawlerClient;
         this.legalBookResourceClient = legalBookResourceClient;
-        this.bookPdfCrawlerService = bookPdfCrawlerService;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
         this.bookStorageDir = Path.of(bookStorageDir).toAbsolutePath().normalize();
@@ -422,12 +419,6 @@ public class ReadPlanStore {
         book.setUpdatedAt(LocalDateTime.now());
         bookMapper.updateById(book);
         return toBookSummary(book);
-    }
-
-    public void triggerPdfCrawl(Long bookId) {
-        // Verify the book exists
-        requireBook(bookId);
-        bookPdfCrawlerService.crawlAndDownloadPdfAsync(bookId);
     }
 
     @Transactional

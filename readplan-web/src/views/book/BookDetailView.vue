@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute, useRouter } from 'vue-router';
-import { getBookDetail, crawlBookPdf } from '@/api/book/book';
+import { getBookDetail } from '@/api/book/book';
 import { addReadingPlan } from '@/api/plan/plan';
 import AppPage from '@/components/common/AppPage.vue';
 import PublicNoteList from '@/components/note/PublicNoteList.vue';
@@ -21,27 +21,6 @@ const isAdmin = computed(() => userStore.profile?.roles.includes('ADMIN'));
 
 const goToAdmin = () => {
   void router.push('/admin/books');
-};
-
-const crawling = ref(false);
-
-const triggerCrawlPdf = async () => {
-  if (!detail.value) {
-    return;
-  }
-  crawling.value = true;
-  try {
-    const res = await crawlBookPdf(detail.value.id);
-    ElMessage.success(res.message || '正在全网检索并下载该书 PDF，请稍候。');
-    // Reload details after 3 seconds
-    setTimeout(() => {
-      void loadDetail();
-    }, 3500);
-  } catch (error: any) {
-    ElMessage.error(error.message || '启动爬虫失败，请重试');
-  } finally {
-    crawling.value = false;
-  }
 };
 
 const isFullscreen = ref(false);
@@ -187,14 +166,12 @@ onUnmounted(() => {
               <p>该书籍暂未提供在线阅读支持。</p>
             </header>
             <el-empty description="此书籍暂未上传关联的 PDF 电子书文件">
-              <div class="empty-actions" style="display: flex; gap: 12px; justify-content: center;">
+              <div class="empty-actions">
                 <el-button v-if="isAdmin" type="primary" @click="goToAdmin">
                   去后台上传关联 PDF
                 </el-button>
-                <el-button :loading="crawling" type="success" @click="triggerCrawlPdf">
-                  系统智能爬取 PDF
-                </el-button>
               </div>
+              <p class="detail-empty-tip">当前已不再提供全网自动爬取 PDF，请使用后台合法资源搜索或本地上传。</p>
             </el-empty>
           </section>
 
@@ -353,6 +330,18 @@ onUnmounted(() => {
 
 .detail-notes__header p {
   margin-top: 8px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.detail-empty-tip {
+  margin: 16px 0 0;
+  color: var(--page-muted);
+  text-align: center;
 }
 
 @media (width <= 900px) {

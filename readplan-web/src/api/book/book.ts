@@ -252,7 +252,3 @@ export const uploadBookFile = async (bookId: string, file: File): Promise<BookSu
   return normalizeBookSummary(data.data);
 };
 
-export const crawlBookPdf = async (bookId: string): Promise<{ message: string }> => {
-  const { data } = await request.post<ApiResponse<{ message: string }>>(`/books/${bookId}/crawl-pdf`);
-  return data.data;
-};

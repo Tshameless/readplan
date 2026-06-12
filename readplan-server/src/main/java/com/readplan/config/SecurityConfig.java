@@ -61,7 +61,6 @@ public class SecurityConfig {
                     "/doc.html",
                     "/swagger-ui/**",
                     "/files/books/**",
-                    "/api/books/*/crawl-pdf",
                     "/favicon.ico",
                     "/error"
                 )
