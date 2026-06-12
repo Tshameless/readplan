@@ -148,8 +148,8 @@ onMounted(() => {
 
 .note-card {
   border: 1px solid var(--page-border);
-  border-radius: 24px;
-  background: rgb(255 255 255 / 88%);
+  border-radius: 8px;
+  background: var(--page-surface);
   padding: 22px;
   box-shadow: var(--page-shadow);
 }

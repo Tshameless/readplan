@@ -121,7 +121,7 @@ onMounted(() => {
 .plan-book__cover {
   width: 52px;
   height: 72px;
-  border-radius: 10px;
+  border-radius: 4px;
   object-fit: cover;
 }
 

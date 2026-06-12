@@ -50,8 +50,8 @@ const emit = defineEmits<{
 .book-card {
   overflow: hidden;
   border: 1px solid var(--page-border);
-  border-radius: 24px;
-  background: rgb(255 255 255 / 84%);
+  border-radius: 8px;
+  background: var(--page-surface);
   box-shadow: var(--page-shadow);
 }
 

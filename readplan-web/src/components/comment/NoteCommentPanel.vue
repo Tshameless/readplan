@@ -145,7 +145,7 @@ onMounted(() => {
 
 .comment-card {
   padding: 14px;
-  border-radius: 16px;
-  background: rgb(20 33 61 / 4%);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
 }
 </style>

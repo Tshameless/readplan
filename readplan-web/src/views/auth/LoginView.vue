@@ -116,7 +116,7 @@ const handleSubmit = async () => {
 
 .auth-card {
   border: 1px solid var(--page-border);
-  border-radius: 28px;
+  border-radius: 8px;
   background: var(--page-surface);
   box-shadow: var(--page-shadow);
   backdrop-filter: blur(18px);

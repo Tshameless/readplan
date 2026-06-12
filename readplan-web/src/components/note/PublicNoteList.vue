@@ -34,8 +34,8 @@ defineProps<{
 
 .note-card {
   border: 1px solid var(--page-border);
-  border-radius: 22px;
-  background: rgb(255 255 255 / 86%);
+  border-radius: 8px;
+  background: var(--page-surface);
   padding: 20px;
 }
 

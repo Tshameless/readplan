@@ -92,7 +92,7 @@ const handleSubmit = async () => {
 .register-card {
   width: min(100%, 460px);
   border: 1px solid var(--page-border);
-  border-radius: 24px;
+  border-radius: 8px;
   background: var(--page-surface);
   box-shadow: var(--page-shadow);
 }

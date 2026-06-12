@@ -115,7 +115,7 @@ onMounted(() => {
 .hero-stats__card,
 .filter-card {
   border: 1px solid var(--page-border);
-  border-radius: 24px;
+  border-radius: 8px;
   background: var(--page-surface);
   box-shadow: var(--page-shadow);
 }

@@ -200,8 +200,8 @@ onUnmounted(() => {
 .detail-panel,
 .detail-notes {
   border: 1px solid var(--page-border);
-  border-radius: 28px;
-  background: rgb(255 255 255 / 86%);
+  border-radius: 8px;
+  background: var(--page-surface);
   box-shadow: var(--page-shadow);
 }
 
@@ -216,7 +216,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   min-height: 360px;
-  border-radius: 20px;
+  border-radius: 4px;
   object-fit: cover;
   background: #f3f4f6;
 }
@@ -251,8 +251,8 @@ onUnmounted(() => {
 
 .detail-pdf-viewer {
   border: 1px solid var(--page-border);
-  border-radius: 28px;
-  background: rgb(255 255 255 / 86%);
+  border-radius: 8px;
+  background: var(--page-surface);
   box-shadow: var(--page-shadow);
   padding: 24px;
 }
@@ -284,7 +284,7 @@ onUnmounted(() => {
 .pdf-iframe-container {
   width: 100%;
   height: 680px;
-  border-radius: 16px;
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.08);
   position: relative;

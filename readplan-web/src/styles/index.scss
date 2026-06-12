@@ -11,16 +11,24 @@ body,
   margin: 0;
 }
 
+:root {
+  /* Override Element Plus border-radius to match Editorial Minimalism */
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 2px;
+  --el-border-radius-round: 16px;
+  --el-border-radius-circle: 50%;
+}
+
 body {
-  background:
-    radial-gradient(circle at top, rgb(252 191 73 / 25%), transparent 28%),
-    linear-gradient(180deg, #f9f5ef 0%, #eef3f7 100%);
+  background-color: var(--page-bg);
   color: var(--page-text);
   font-family:
-    Aptos,
+    'Inter',
+    'Helvetica Neue',
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
+  letter-spacing: 0.2px;
 }
 
 a {
