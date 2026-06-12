@@ -219,7 +219,7 @@ public class ReadPlanStore {
         if (!hasText(keyword)) {
             throw new BusinessException(400, "搜索关键字不能为空");
         }
-        return legalBookResourceClient.search(keyword.trim(), 12);
+        return legalBookResourceClient.search(keyword.trim(), 24);
     }
 
     @Transactional

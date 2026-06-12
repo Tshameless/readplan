@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   crawlBooksFromOpenLibrary,
@@ -47,10 +47,13 @@ const form = reactive<SaveBookPayload>({
   description: '',
   tags: [],
 });
+const uploadSectionRef = useTemplateRef<HTMLElement>('uploadSection');
 
 const selectedCount = computed(() => candidates.value.filter((item) => item.selected).length);
 const selectedLegalCount = computed(() => legalResources.value.filter((item) => item.selected).length);
 const tagOptions = computed(() => Array.from(new Set(localBooks.value.flatMap((book) => book.tags))));
+const hasLegalResults = computed(() => legalResources.value.length > 0);
+const isLegalResultSparse = computed(() => legalResources.value.length > 0 && legalResources.value.length < 6);
 
 const parseTagInput = (value: string): string[] =>
   value
@@ -87,6 +90,13 @@ const searchLegalResources = async () => {
   legalLoading.value = true;
   try {
     legalResources.value = await searchLegalBookResources(importKeyword.value);
+    if (legalResources.value.length === 0) {
+      ElMessage.info('没有找到合适资源，可以直接上传本地文件或手动建书。');
+      return;
+    }
+    if (legalResources.value.length < 6) {
+      ElMessage.info('当前结果较少，建议同时准备本地文件上传作为补充。');
+    }
   } finally {
     legalLoading.value = false;
   }
@@ -151,6 +161,26 @@ const openCreateDialog = () => {
     tags: [],
   });
   dialogOpen.value = true;
+};
+
+const openCreateDialogFromKeyword = () => {
+  selectedDialogFile.value = null;
+  editingBook.value = null;
+  Object.assign(form, {
+    title: importKeyword.value.trim(),
+    author: '',
+    cover: '',
+    publishYear: new Date().getFullYear(),
+    isbn: '',
+    olId: '',
+    description: `根据搜索词“${importKeyword.value.trim() || '未命名书籍'}”手动补录书籍信息。`,
+    tags: parseTagInput(legalTagText.value),
+  });
+  dialogOpen.value = true;
+};
+
+const scrollToUploadSection = () => {
+  uploadSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 const openEditDialog = (book: BookSummary) => {
@@ -306,8 +336,8 @@ onMounted(() => {
       <template #header>
         <div class="admin-section__header">
           <div>
-            <h2>合法公开资源搜索</h2>
-            <p>按书名在公开合法书源里搜索，目前接入 Open Library 公共扫描与 Project Gutenberg。</p>
+            <h2>合法资源搜索</h2>
+            <p>按书名搜索合法公开资源、可预览资源和开放书目信息，目前接入 Open Library、Project Gutenberg、Google Books。</p>
           </div>
           <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
         </div>
@@ -317,7 +347,7 @@ onMounted(() => {
         <el-input
           v-model="importKeyword"
           clearable
-          placeholder="输入书名搜索公开合法资源"
+          placeholder="输入书名搜索合法资源或书目信息"
           @keyup.enter="searchLegalResources"
         />
         <el-input
@@ -329,7 +359,7 @@ onMounted(() => {
         <el-button :loading="legalImportLoading" @click="importSelectedLegalResources">导入所选资源</el-button>
       </div>
 
-      <div class="candidate-grid legal-grid">
+      <div v-if="hasLegalResults" class="candidate-grid legal-grid">
         <label v-for="resource in legalResources" :key="resource.sourceId" class="candidate-card">
           <input v-model="resource.selected" class="candidate-card__checkbox" type="checkbox" />
           <img :alt="resource.title" :src="resource.cover || form.cover" class="candidate-card__cover" />
@@ -343,9 +373,25 @@ onMounted(() => {
           </div>
         </label>
       </div>
+
+      <el-empty v-else-if="!legalLoading" description="没有找到可直接使用的资源结果">
+        <div class="empty-actions">
+          <el-button type="primary" @click="scrollToUploadSection">上传本地文件</el-button>
+          <el-button @click="openCreateDialogFromKeyword">按当前书名手动建书</el-button>
+        </div>
+      </el-empty>
+
+      <div v-if="isLegalResultSparse" class="resource-tip-panel">
+        <p class="resource-tip-panel__title">结果偏少时的建议</p>
+        <p class="resource-tip-panel__text">这类书通常没有稳定公开全文资源。你可以直接上传本地 PDF，或者先建书再补充文件与标签。</p>
+        <div class="resource-tip-panel__actions">
+          <el-button type="primary" plain @click="scrollToUploadSection">去上传区</el-button>
+          <el-button plain @click="openCreateDialogFromKeyword">快速建书</el-button>
+        </div>
+      </div>
     </el-card>
 
-    <el-card class="admin-section" shadow="never">
+    <el-card ref="uploadSection" class="admin-section" shadow="never">
       <template #header>
         <div class="admin-section__header">
           <div>
@@ -574,6 +620,38 @@ onMounted(() => {
 
 .legal-grid .candidate-card {
   align-content: start;
+}
+
+.empty-actions,
+.resource-tip-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.resource-tip-panel {
+  margin-top: 20px;
+  border: 1px dashed var(--page-border);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgb(250 247 240 / 90%);
+}
+
+.resource-tip-panel__title,
+.resource-tip-panel__text {
+  margin: 0;
+}
+
+.resource-tip-panel__title {
+  font-weight: 700;
+  color: var(--page-text);
+}
+
+.resource-tip-panel__text {
+  margin-top: 8px;
+  color: var(--page-muted);
+  line-height: 1.7;
 }
 
 .upload-panel {
