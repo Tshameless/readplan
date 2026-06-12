@@ -79,3 +79,16 @@ export interface AdminImportCandidate {
   cover: string;
   selected: boolean;
 }
+
+export interface LegalBookResourceCandidate {
+  sourceId: string;
+  title: string;
+  author: string;
+  publishYear: number;
+  cover: string;
+  resourceUrl: string;
+  resourceType: string;
+  sourceName: string;
+  description: string;
+  selected: boolean;
+}

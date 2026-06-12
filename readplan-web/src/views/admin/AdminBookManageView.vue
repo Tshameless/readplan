@@ -6,27 +6,33 @@ import {
   createBook,
   deleteBook,
   getAdminBooks,
+  importBooksFromLegalResources,
   importBooksFromOpenLibrary,
   searchOpenLibraryBooks,
+  searchLegalBookResources,
   updateBook,
   uploadBooksFromFile,
   uploadBookFile,
   type SaveBookPayload,
 } from '@/api/book/book';
 import AppPage from '@/components/common/AppPage.vue';
-import type { AdminImportCandidate, BookSummary } from '@/types/readplan';
+import type { AdminImportCandidate, BookSummary, LegalBookResourceCandidate } from '@/types/readplan';
 
 const loading = shallowRef(false);
 const crawlLoading = shallowRef(false);
 const importLoading = shallowRef(false);
+const legalLoading = shallowRef(false);
+const legalImportLoading = shallowRef(false);
 const uploadLoading = shallowRef(false);
 const saveLoading = shallowRef(false);
 const deletingId = shallowRef('');
 const dialogOpen = shallowRef(false);
 const importKeyword = shallowRef('java');
 const uploadTagText = shallowRef('');
+const legalTagText = shallowRef('公版资源');
 const selectedUploadFile = shallowRef<File | null>(null);
 const candidates = ref<AdminImportCandidate[]>([]);
+const legalResources = ref<LegalBookResourceCandidate[]>([]);
 const localBooks = ref<BookSummary[]>([]);
 const editingBook = ref<BookSummary | null>(null);
 const dialogUploadLoading = shallowRef(false);
@@ -43,6 +49,7 @@ const form = reactive<SaveBookPayload>({
 });
 
 const selectedCount = computed(() => candidates.value.filter((item) => item.selected).length);
+const selectedLegalCount = computed(() => legalResources.value.filter((item) => item.selected).length);
 const tagOptions = computed(() => Array.from(new Set(localBooks.value.flatMap((book) => book.tags))));
 
 const parseTagInput = (value: string): string[] =>
@@ -76,6 +83,15 @@ const crawlCandidates = async () => {
   }
 };
 
+const searchLegalResources = async () => {
+  legalLoading.value = true;
+  try {
+    legalResources.value = await searchLegalBookResources(importKeyword.value);
+  } finally {
+    legalLoading.value = false;
+  }
+};
+
 const importSelectedBooks = async () => {
   importLoading.value = true;
 
@@ -94,6 +110,30 @@ const importSelectedBooks = async () => {
     ElMessage.success(`已导入 ${importedBooks.length} 本书。`);
   } finally {
     importLoading.value = false;
+  }
+};
+
+const importSelectedLegalResources = async () => {
+  legalImportLoading.value = true;
+
+  try {
+    const importedBooks = await importBooksFromLegalResources(
+      legalResources.value,
+      parseTagInput(legalTagText.value),
+    );
+    if (importedBooks.length === 0) {
+      ElMessage.warning('请先选择要导入的公开资源。');
+      return;
+    }
+
+    await loadLocalBooks();
+    legalResources.value = legalResources.value.map((item) => ({
+      ...item,
+      selected: false,
+    }));
+    ElMessage.success(`已导入 ${importedBooks.length} 本公开资源书籍。`);
+  } finally {
+    legalImportLoading.value = false;
   }
 };
 
@@ -257,6 +297,49 @@ onMounted(() => {
             <h3>{{ candidate.title }}</h3>
             <p>{{ candidate.author }}</p>
             <span>{{ candidate.firstPublishYear }} · {{ candidate.olId }}</span>
+          </div>
+        </label>
+      </div>
+    </el-card>
+
+    <el-card class="admin-section" shadow="never">
+      <template #header>
+        <div class="admin-section__header">
+          <div>
+            <h2>合法公开资源搜索</h2>
+            <p>按书名在公开合法书源里搜索，目前接入 Open Library 公共扫描与 Project Gutenberg。</p>
+          </div>
+          <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
+        </div>
+      </template>
+
+      <div class="admin-toolbar legal-toolbar">
+        <el-input
+          v-model="importKeyword"
+          clearable
+          placeholder="输入书名搜索公开合法资源"
+          @keyup.enter="searchLegalResources"
+        />
+        <el-input
+          v-model="legalTagText"
+          clearable
+          placeholder="导入时追加标签，例如：公版资源,公开书源"
+        />
+        <el-button :loading="legalLoading" type="primary" @click="searchLegalResources">搜索公开资源</el-button>
+        <el-button :loading="legalImportLoading" @click="importSelectedLegalResources">导入所选资源</el-button>
+      </div>
+
+      <div class="candidate-grid legal-grid">
+        <label v-for="resource in legalResources" :key="resource.sourceId" class="candidate-card">
+          <input v-model="resource.selected" class="candidate-card__checkbox" type="checkbox" />
+          <img :alt="resource.title" :src="resource.cover || form.cover" class="candidate-card__cover" />
+          <div class="candidate-card__body">
+            <h3>{{ resource.title }}</h3>
+            <p>{{ resource.author || '作者待补充' }}</p>
+            <span>{{ resource.sourceName }} · {{ resource.resourceType }}</span>
+            <span>{{ resource.publishYear || '年份未知' }}</span>
+            <p class="candidate-card__description">{{ resource.description }}</p>
+            <el-link :href="resource.resourceUrl" target="_blank" type="primary">打开资源页</el-link>
           </div>
         </label>
       </div>
@@ -471,9 +554,26 @@ onMounted(() => {
   margin: 0;
 }
 
+.candidate-card__body {
+  display: grid;
+  gap: 6px;
+}
+
 .candidate-card p,
 .candidate-card span {
   color: var(--page-muted);
+}
+
+.candidate-card__description {
+  min-height: 40px;
+}
+
+.legal-toolbar {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto;
+}
+
+.legal-grid .candidate-card {
+  align-content: start;
 }
 
 .upload-panel {

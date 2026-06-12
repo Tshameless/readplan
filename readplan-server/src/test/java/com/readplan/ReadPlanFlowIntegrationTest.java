@@ -213,6 +213,61 @@ class ReadPlanFlowIntegrationTest {
         assertThat(imported.get(0).path("description").asText()).contains("本地 PDF");
     }
 
+    @Test
+    void adminCanSearchAndImportLegalPublicResources() throws Exception {
+        String adminToken = login("admin", "123456");
+
+        JsonNode resources = api(mockMvc.perform(get("/api/admin/books/legal-resources")
+                .header("Authorization", bearer(adminToken))
+                .param("keyword", "alice"))
+            .andExpect(status().isOk()))
+            .data();
+
+        assertThat(resources.isArray()).isTrue();
+        assertThat(resources.size()).isGreaterThan(0);
+
+        JsonNode first = resources.get(0);
+        JsonNode imported = api(mockMvc.perform(post("/api/admin/books/legal-resources/import")
+                .header("Authorization", bearer(adminToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "tags": ["公版资源", "测试导入"],
+                      "resources": [
+                        {
+                          "sourceId": "%s",
+                          "title": "%s",
+                          "author": "%s",
+                          "publishYear": %d,
+                          "cover": "%s",
+                          "resourceUrl": "%s",
+                          "resourceType": "%s",
+                          "sourceName": "%s",
+                          "description": "%s",
+                          "selected": true
+                        }
+                      ]
+                    }
+                    """.formatted(
+                    first.path("sourceId").asText(),
+                    escapeJson(first.path("title").asText()),
+                    escapeJson(first.path("author").asText()),
+                    first.path("publishYear").asInt(),
+                    escapeJson(first.path("cover").asText()),
+                    escapeJson(first.path("resourceUrl").asText()),
+                    escapeJson(first.path("resourceType").asText()),
+                    escapeJson(first.path("sourceName").asText()),
+                    escapeJson(first.path("description").asText())
+                )))
+            .andExpect(status().isOk()))
+            .data();
+
+        assertThat(imported.isArray()).isTrue();
+        assertThat(imported).hasSize(1);
+        assertThat(imported.get(0).path("fileUrl").asText()).isNotBlank();
+        assertThat(imported.get(0).path("tags").toString()).contains("公版资源");
+    }
+
     private String login(String username, String password) throws Exception {
         String responseJson = mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -238,5 +293,9 @@ class ReadPlanFlowIntegrationTest {
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

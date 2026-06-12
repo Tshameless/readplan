@@ -10,6 +10,7 @@ import com.readplan.module.shared.payload.ReadPlanPayloads.BookDetail;
 import com.readplan.module.shared.payload.ReadPlanPayloads.DashboardStat;
 import com.readplan.module.shared.payload.ReadPlanPayloads.BookSummary;
 import com.readplan.module.shared.payload.ReadPlanPayloads.CommentItem;
+import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCandidate;
 import com.readplan.module.shared.payload.ReadPlanPayloads.PublicNote;
 import com.readplan.module.shared.payload.ReadPlanPayloads.ReadingPlanItem;
 import com.readplan.module.shared.payload.ReadPlanPayloads.UserInfoResponse;
@@ -61,6 +62,7 @@ public class ReadPlanStore {
     private final CommentMapper commentMapper;
     private final ImportCandidateMapper importCandidateMapper;
     private final BookCrawlerClient bookCrawlerClient;
+    private final LegalBookResourceClient legalBookResourceClient;
     private final BookPdfCrawlerService bookPdfCrawlerService;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -74,6 +76,7 @@ public class ReadPlanStore {
         CommentMapper commentMapper,
         ImportCandidateMapper importCandidateMapper,
         BookCrawlerClient bookCrawlerClient,
+        LegalBookResourceClient legalBookResourceClient,
         BookPdfCrawlerService bookPdfCrawlerService,
         PasswordEncoder passwordEncoder,
         org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
@@ -86,6 +89,7 @@ public class ReadPlanStore {
         this.commentMapper = commentMapper;
         this.importCandidateMapper = importCandidateMapper;
         this.bookCrawlerClient = bookCrawlerClient;
+        this.legalBookResourceClient = legalBookResourceClient;
         this.bookPdfCrawlerService = bookPdfCrawlerService;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
@@ -211,6 +215,13 @@ public class ReadPlanStore {
         )).toList();
     }
 
+    public List<LegalBookResourceCandidate> searchLegalResourceCandidates(String keyword) {
+        if (!hasText(keyword)) {
+            throw new BusinessException(400, "搜索关键字不能为空");
+        }
+        return legalBookResourceClient.search(keyword.trim(), 12);
+    }
+
     @Transactional
     public List<AdminImportCandidate> crawlImportCandidates(String keyword) {
         if (!hasText(keyword)) {
@@ -285,6 +296,45 @@ public class ReadPlanStore {
             book.setUpdatedAt(now);
             bookMapper.insert(book);
             importedBooks.add(toBookSummary(book));
+        }
+
+        return importedBooks;
+    }
+
+    @Transactional
+    public List<BookSummary> importBooksFromLegalResources(List<LegalBookResourceCandidate> candidates, List<String> tags) {
+        if (candidates == null || candidates.isEmpty()) {
+            throw new BusinessException(400, "请先选择要导入的公开资源");
+        }
+
+        List<BookSummary> importedBooks = new java.util.ArrayList<>();
+        for (LegalBookResourceCandidate candidate : candidates) {
+            if (!hasText(candidate.title())) {
+                continue;
+            }
+
+            Long exists = bookMapper.selectCount(
+                Wrappers.<BookEntity>lambdaQuery()
+                    .eq(BookEntity::getTitle, candidate.title())
+                    .eq(BookEntity::getAuthor, defaultString(candidate.author()))
+                    .eq(BookEntity::getDeleted, 0)
+            );
+            if (exists != null && exists > 0) {
+                continue;
+            }
+
+            importedBooks.add(createBook(
+                candidate.title(),
+                candidate.author(),
+                candidate.cover(),
+                defaultNumber(candidate.publishYear()),
+                "",
+                candidate.sourceId(),
+                hasText(candidate.description()) ? candidate.description() : "来自合法公开书源导入。",
+                mergeTagLists(tags, List.of(candidate.sourceName(), candidate.resourceType())),
+                candidate.resourceUrl(),
+                candidate.resourceType()
+            ));
         }
 
         return importedBooks;
@@ -910,6 +960,17 @@ public class ReadPlanStore {
         List<String> merged = new java.util.ArrayList<>();
         merged.addAll(splitFlexibleTags(globalTags));
         merged.addAll(splitFlexibleTags(localTags));
+        return merged;
+    }
+
+    private List<String> mergeTagLists(List<String> tags, List<String> additions) {
+        List<String> merged = new java.util.ArrayList<>();
+        if (tags != null) {
+            merged.addAll(tags);
+        }
+        if (additions != null) {
+            merged.addAll(additions);
+        }
         return merged;
     }
 

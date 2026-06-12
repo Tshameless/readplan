@@ -104,6 +104,20 @@ public final class ReadPlanPayloads {
     ) {
     }
 
+    public record LegalBookResourceCandidate(
+        String sourceId,
+        String title,
+        String author,
+        Integer publishYear,
+        String cover,
+        String resourceUrl,
+        String resourceType,
+        String sourceName,
+        String description,
+        Boolean selected
+    ) {
+    }
+
     public record DashboardStat(
         String label,
         String value,

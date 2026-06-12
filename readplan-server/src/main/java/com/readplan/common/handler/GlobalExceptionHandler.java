@@ -7,6 +7,7 @@ import java.sql.SQLIntegrityConstraintViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -31,6 +32,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SQLIntegrityConstraintViolationException.class)
     public ApiResponse<Void> handleConstraintViolation(SQLIntegrityConstraintViolationException exception) {
         return ApiResponse.failure(400, "重复操作，请勿重复提交");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ApiResponse<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        return ApiResponse.failure(405, "请求方法不支持: " + exception.getMethod());
     }
 
     @ExceptionHandler(Exception.class)

@@ -28,7 +28,7 @@
   - 加入阅读计划、修改状态、移除计划
   - 创建 / 编辑 / 删除个人笔记
   - 查看评论、发表评论、删除可管理评论
-  - 管理员导入候选书籍、手动新增、编辑、下架书籍
+  - 管理员导入候选书籍、搜索合法公开资源、上传本地 PDF、手动新增、编辑、下架书籍
 
 ### 后端 `readplan-server`
 
@@ -41,6 +41,7 @@
   - Auth / User / Book / Plan / Note / Comment 接口
   - `MySQL + MyBatis-Plus` 实体、Mapper 和数据初始化
   - 首次启动自动建表并写入演示数据
+  - 合法公开资源搜索与导入接口（当前接入 `Open Library` 与 `Project Gutenberg`）
 - 数据库脚本：
   - [db/schema.sql](C:/Users/Administrator/Documents/Codex/2026-06-11/a/readplan-server/db/schema.sql)
 
@@ -77,6 +78,7 @@ jdbc:mysql://localhost:3306/readplan?createDatabaseIfNotExist=true&useUnicode=tr
 - 如果本地没有 `readplan` 数据库，后端启动时会自动创建。
 - 启动时会自动执行 [schema.sql](C:/Users/Administrator/Documents/Codex/2026-06-11/a/readplan-server/db/schema.sql) 建表。
 - 当库里没有用户数据时，会自动写入演示账号、演示书籍、阅读计划、笔记和评论。
+- 项目默认不再预置本地 PDF 文件；书籍资源可通过后台搜索合法公开资源导入，或手动上传本地 `pdf` 文件。
 
 ### 2. 启动后端
 
@@ -112,6 +114,25 @@ pnpm dev
 - 普通用户：`reader / 123456`
 - 管理员：`admin / 123456`
 - 其他演示用户：`zhangsan / 123456`、`aqing / 123456`、`architect / 123456`
+
+## 书籍资源导入
+
+管理员登录后台后，目前有三种建库方式：
+
+1. 候选书籍导入
+2. 合法公开资源搜索导入
+3. 本地 `csv` / `json` / `pdf` 文件上传导入
+
+其中“合法公开资源搜索”会按书名查询公开合法来源，当前接入：
+
+- `Open Library` 公共扫描资源
+- `Project Gutenberg` 公版电子书
+
+导入后：
+
+- 资源来源页会保存到书籍的“原文件”链接中
+- 可继续为书籍补充标签、简介、作者等信息
+- 本地上传的 `pdf` 会保存到 `readplan-server/storage/books`
 
 ## 开发命令
 
@@ -158,12 +179,13 @@ mvn spring-boot:run
 - 阅读计划创建、更新、删除
 - 笔记创建、更新、删除
 - 评论创建、查询、删除
+- 管理员搜索合法公开资源并导入书库
 
 ## 仍可继续增强
 
 下面这些还没有完全做成生产版：
 
-1. 接入真实 Open Library 远程搜索，而不是本地候选数据。
+1. 为合法公开资源搜索增加更多稳定书源和更细的过滤条件。
 2. 继续补充更细粒度的后端测试和前端 E2E 测试。
 3. 增加更完整的分页、筛选和表单校验。
 4. 增加 Docker / docker-compose 一键启动方式。

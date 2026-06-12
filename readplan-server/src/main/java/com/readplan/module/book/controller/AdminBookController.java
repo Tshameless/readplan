@@ -3,6 +3,7 @@ package com.readplan.module.book.controller;
 import com.readplan.common.api.ApiResponse;
 import com.readplan.module.shared.payload.ReadPlanPayloads.AdminImportCandidate;
 import com.readplan.module.shared.payload.ReadPlanPayloads.BookSummary;
+import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCandidate;
 import com.readplan.module.shared.store.ReadPlanStore;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -44,9 +45,24 @@ public class AdminBookController {
         return ApiResponse.success(readPlanStore.crawlImportCandidates(keyword));
     }
 
+    @GetMapping("/legal-resources")
+    public ApiResponse<List<LegalBookResourceCandidate>> searchLegalResources(
+        @RequestParam(defaultValue = "") String keyword
+    ) {
+        return ApiResponse.success(readPlanStore.searchLegalResourceCandidates(keyword));
+    }
+
     @PostMapping("/import")
     public ApiResponse<List<BookSummary>> importFromOpenLibrary(@Valid @RequestBody ImportRequest request) {
         return ApiResponse.success(readPlanStore.importBooks(request.olIds()));
+    }
+
+    @PostMapping("/legal-resources/import")
+    public ApiResponse<List<BookSummary>> importFromLegalResources(@Valid @RequestBody ImportLegalResourcesRequest request) {
+        List<LegalBookResourceCandidate> selected = request.resources() == null
+            ? List.of()
+            : request.resources().stream().filter(resource -> Boolean.TRUE.equals(resource.selected())).toList();
+        return ApiResponse.success(readPlanStore.importBooksFromLegalResources(selected, request.tags()));
     }
 
     @PostMapping("/upload")
@@ -101,6 +117,12 @@ public class AdminBookController {
     }
 
     public record ImportRequest(List<String> olIds) {
+    }
+
+    public record ImportLegalResourcesRequest(
+        List<LegalBookResourceCandidate> resources,
+        List<String> tags
+    ) {
     }
 
     public record SaveBookRequest(
