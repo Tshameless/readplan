@@ -41,7 +41,7 @@
   - Auth / User / Book / Plan / Note / Comment 接口
   - `MySQL + MyBatis-Plus` 实体、Mapper 和数据初始化
   - 首次启动自动建表并写入演示数据
-  - 资源搜索与导入接口（当前接入 `Open Library`、`Project Gutenberg`、`Google Books`）
+  - 资源搜索与导入接口（当前仅接入 `中文维基文库`）
 - 数据库脚本：
   - [db/schema.sql](C:/Users/Administrator/Documents/Codex/2026-06-11/a/readplan-server/db/schema.sql)
 
@@ -126,10 +126,7 @@ pnpm dev
 
 其中“资源搜索”会按书名查询公开来源、可预览来源和开放书目来源，当前接入：
 
-- `Open Library` 公共扫描资源
-- `Project Gutenberg` 公版电子书
-- `Google Books` 预览 / 书目信息
-- `Open Library Catalog` 开放书目页
+- `中文维基文库`
 
 导入后：
 

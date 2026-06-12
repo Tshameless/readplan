@@ -337,7 +337,7 @@ onMounted(() => {
         <div class="admin-section__header">
           <div>
             <h2>资源搜索</h2>
-            <p>按书名搜索公开资源、可预览资源和开放书目信息，目前接入 Open Library、Project Gutenberg、Google Books、Internet Archive、中文维基文库。</p>
+            <p>按书名搜索公开文本资源，目前仅接入中文维基文库。</p>
           </div>
           <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
         </div>
