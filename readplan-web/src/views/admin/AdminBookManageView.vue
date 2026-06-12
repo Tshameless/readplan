@@ -337,7 +337,7 @@ onMounted(() => {
         <div class="admin-section__header">
           <div>
             <h2>Web Resource</h2>
-            <p>按主题或书名搜索网页资源，目前接入 Europe PMC、Open Library 和中文维基文库。</p>
+            <p>按书名搜索书籍和公开文本资源，目前接入 Open Library 和中文维基文库。</p>
           </div>
           <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
         </div>
@@ -347,7 +347,7 @@ onMounted(() => {
         <el-input
           v-model="importKeyword"
           clearable
-          placeholder="输入主题、论文题目或书名搜索资源"
+          placeholder="输入书名搜索资源"
           @keyup.enter="searchLegalResources"
         />
         <el-input
@@ -355,7 +355,7 @@ onMounted(() => {
           clearable
           placeholder="导入时追加标签，例如：公版资源,公开书源"
         />
-        <el-button :loading="legalLoading" type="primary" @click="searchLegalResources">搜索 Web Resource</el-button>
+        <el-button :loading="legalLoading" type="primary" @click="searchLegalResources">搜索资源</el-button>
         <el-button :loading="legalImportLoading" @click="importSelectedLegalResources">导入所选资源</el-button>
       </div>
 

@@ -26,14 +26,6 @@ public class LegalBookResourceClient {
         Map<String, WebResourceCandidate> candidates = new LinkedHashMap<>();
 
         try {
-            for (WebResourceCandidate candidate : searchEuropePmc(keyword, safeLimit)) {
-                candidates.putIfAbsent(dedupKey(candidate), candidate);
-            }
-        } catch (Exception ignored) {
-            // Ignore transient upstream failures and continue with the remaining source.
-        }
-
-        try {
             for (WebResourceCandidate candidate : searchOpenLibrary(keyword, safeLimit)) {
                 candidates.putIfAbsent(dedupKey(candidate), candidate);
             }
@@ -49,56 +41,11 @@ public class LegalBookResourceClient {
             // Ignore transient upstream failures and return whatever remains available.
         }
 
-        return new ArrayList<>(candidates.values());
-    }
-
-    private List<WebResourceCandidate> searchEuropePmc(String keyword, int limit) {
-        JsonNode root = webClient.get()
-            .uri(uriBuilder -> uriBuilder
-                .scheme("https")
-                .host("www.ebi.ac.uk")
-                .path("/europepmc/webservices/rest/search")
-                .queryParam("query", keyword + " OPEN_ACCESS:y")
-                .queryParam("format", "json")
-                .queryParam("pageSize", limit)
-                .build())
-            .retrieve()
-            .bodyToMono(JsonNode.class)
-            .block();
-
-        List<WebResourceCandidate> candidates = new ArrayList<>();
-        JsonNode results = root == null ? null : root.path("resultList").path("result");
-        if (results == null || !results.isArray()) {
-            return candidates;
+        List<WebResourceCandidate> results = new ArrayList<>(candidates.values());
+        if (results.size() <= safeLimit) {
+            return results;
         }
-
-        for (JsonNode item : results) {
-            String title = item.path("title").asText("");
-            String pmcid = item.path("pmcid").asText("");
-            if (title.isBlank() || pmcid.isBlank()) {
-                continue;
-            }
-
-            String author = item.path("authorString").asText("");
-            int publishYear = item.path("pubYear").asInt(0);
-            String resourceUrl = "https://pmc.ncbi.nlm.nih.gov/articles/" + pmcid + "/";
-            String description = "Europe PMC 开放获取论文，可在线查看研究全文。";
-
-            candidates.add(new WebResourceCandidate(
-                "EUROPEPMC:" + pmcid,
-                title,
-                author,
-                publishYear,
-                "",
-                resourceUrl,
-                "OPEN_ACCESS_PAPER",
-                "Europe PMC",
-                description,
-                false
-            ));
-        }
-
-        return candidates;
+        return new ArrayList<>(results.subList(0, safeLimit));
     }
 
     private List<WebResourceCandidate> searchOpenLibrary(String keyword, int limit) {
@@ -107,7 +54,7 @@ public class LegalBookResourceClient {
                 .scheme("https")
                 .host("openlibrary.org")
                 .path("/search.json")
-                .queryParam("title", keyword)
+                .queryParam("q", keyword)
                 .queryParam("has_fulltext", true)
                 .queryParam("limit", limit)
                 .build())
