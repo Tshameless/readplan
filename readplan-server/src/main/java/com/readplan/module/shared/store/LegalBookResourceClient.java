@@ -1,7 +1,7 @@
 package com.readplan.module.shared.store;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCandidate;
+import com.readplan.module.shared.payload.ReadPlanPayloads.WebResourceCandidate;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -21,12 +21,12 @@ public class LegalBookResourceClient {
         this.webClient = builder.build();
     }
 
-    public List<LegalBookResourceCandidate> search(String keyword, int limit) {
+    public List<WebResourceCandidate> search(String keyword, int limit) {
         int safeLimit = Math.max(limit, 1);
-        Map<String, LegalBookResourceCandidate> candidates = new LinkedHashMap<>();
+        Map<String, WebResourceCandidate> candidates = new LinkedHashMap<>();
 
         try {
-            for (LegalBookResourceCandidate candidate : searchOpenLibrary(keyword, safeLimit)) {
+            for (WebResourceCandidate candidate : searchEuropePmc(keyword, safeLimit)) {
                 candidates.putIfAbsent(dedupKey(candidate), candidate);
             }
         } catch (Exception ignored) {
@@ -34,7 +34,15 @@ public class LegalBookResourceClient {
         }
 
         try {
-            for (LegalBookResourceCandidate candidate : searchChineseWikisource(keyword, safeLimit)) {
+            for (WebResourceCandidate candidate : searchOpenLibrary(keyword, safeLimit)) {
+                candidates.putIfAbsent(dedupKey(candidate), candidate);
+            }
+        } catch (Exception ignored) {
+            // Ignore transient upstream failures and continue with the remaining source.
+        }
+
+        try {
+            for (WebResourceCandidate candidate : searchChineseWikisource(keyword, safeLimit)) {
                 candidates.putIfAbsent(dedupKey(candidate), candidate);
             }
         } catch (Exception ignored) {
@@ -44,7 +52,56 @@ public class LegalBookResourceClient {
         return new ArrayList<>(candidates.values());
     }
 
-    private List<LegalBookResourceCandidate> searchOpenLibrary(String keyword, int limit) {
+    private List<WebResourceCandidate> searchEuropePmc(String keyword, int limit) {
+        JsonNode root = webClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .scheme("https")
+                .host("www.ebi.ac.uk")
+                .path("/europepmc/webservices/rest/search")
+                .queryParam("query", keyword + " OPEN_ACCESS:y")
+                .queryParam("format", "json")
+                .queryParam("pageSize", limit)
+                .build())
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .block();
+
+        List<WebResourceCandidate> candidates = new ArrayList<>();
+        JsonNode results = root == null ? null : root.path("resultList").path("result");
+        if (results == null || !results.isArray()) {
+            return candidates;
+        }
+
+        for (JsonNode item : results) {
+            String title = item.path("title").asText("");
+            String pmcid = item.path("pmcid").asText("");
+            if (title.isBlank() || pmcid.isBlank()) {
+                continue;
+            }
+
+            String author = item.path("authorString").asText("");
+            int publishYear = item.path("pubYear").asInt(0);
+            String resourceUrl = "https://pmc.ncbi.nlm.nih.gov/articles/" + pmcid + "/";
+            String description = "Europe PMC 开放获取论文，可在线查看研究全文。";
+
+            candidates.add(new WebResourceCandidate(
+                "EUROPEPMC:" + pmcid,
+                title,
+                author,
+                publishYear,
+                "",
+                resourceUrl,
+                "OPEN_ACCESS_PAPER",
+                "Europe PMC",
+                description,
+                false
+            ));
+        }
+
+        return candidates;
+    }
+
+    private List<WebResourceCandidate> searchOpenLibrary(String keyword, int limit) {
         JsonNode root = webClient.get()
             .uri(uriBuilder -> uriBuilder
                 .scheme("https")
@@ -58,7 +115,7 @@ public class LegalBookResourceClient {
             .bodyToMono(JsonNode.class)
             .block();
 
-        List<LegalBookResourceCandidate> candidates = new ArrayList<>();
+        List<WebResourceCandidate> candidates = new ArrayList<>();
         JsonNode docs = root == null ? null : root.path("docs");
         if (docs == null || !docs.isArray()) {
             return candidates;
@@ -86,7 +143,7 @@ public class LegalBookResourceClient {
             String resourceType = "public".equalsIgnoreCase(ebookAccess) ? "PUBLIC_ARCHIVE" : "BORROWABLE_ARCHIVE";
             String description = "Open Library 检索结果，可跳转到 Internet Archive/Open Library 查看全文或借阅。";
 
-            candidates.add(new LegalBookResourceCandidate(
+            candidates.add(new WebResourceCandidate(
                 "OPENLIBRARY:" + workKey,
                 title,
                 author,
@@ -103,7 +160,7 @@ public class LegalBookResourceClient {
         return candidates;
     }
 
-    private List<LegalBookResourceCandidate> searchChineseWikisource(String keyword, int limit) {
+    private List<WebResourceCandidate> searchChineseWikisource(String keyword, int limit) {
         JsonNode root = webClient.get()
             .uri(uriBuilder -> uriBuilder
                 .scheme("https")
@@ -120,7 +177,7 @@ public class LegalBookResourceClient {
             .bodyToMono(JsonNode.class)
             .block();
 
-        List<LegalBookResourceCandidate> candidates = new ArrayList<>();
+        List<WebResourceCandidate> candidates = new ArrayList<>();
         JsonNode results = root == null ? null : root.path("query").path("search");
         if (results == null || !results.isArray()) {
             return candidates;
@@ -140,7 +197,7 @@ public class LegalBookResourceClient {
                 .replace("&quot;", "\"")
                 .replace("&amp;", "&");
 
-            candidates.add(new LegalBookResourceCandidate(
+            candidates.add(new WebResourceCandidate(
                 "ZHWIKISOURCE:" + pageId,
                 title,
                 "中文维基文库",
@@ -157,7 +214,7 @@ public class LegalBookResourceClient {
         return candidates;
     }
 
-    private String dedupKey(LegalBookResourceCandidate candidate) {
+    private String dedupKey(WebResourceCandidate candidate) {
         return (candidate.title() + "|" + candidate.author()).toLowerCase(Locale.ROOT).trim();
     }
 

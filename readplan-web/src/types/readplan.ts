@@ -80,7 +80,7 @@ export interface AdminImportCandidate {
   selected: boolean;
 }
 
-export interface LegalBookResourceCandidate {
+export interface WebResourceCandidate {
   sourceId: string;
   title: string;
   author: string;

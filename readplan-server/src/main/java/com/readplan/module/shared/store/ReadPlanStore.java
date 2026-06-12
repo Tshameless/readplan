@@ -10,7 +10,7 @@ import com.readplan.module.shared.payload.ReadPlanPayloads.BookDetail;
 import com.readplan.module.shared.payload.ReadPlanPayloads.DashboardStat;
 import com.readplan.module.shared.payload.ReadPlanPayloads.BookSummary;
 import com.readplan.module.shared.payload.ReadPlanPayloads.CommentItem;
-import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCandidate;
+import com.readplan.module.shared.payload.ReadPlanPayloads.WebResourceCandidate;
 import com.readplan.module.shared.payload.ReadPlanPayloads.PublicNote;
 import com.readplan.module.shared.payload.ReadPlanPayloads.ReadingPlanItem;
 import com.readplan.module.shared.payload.ReadPlanPayloads.UserInfoResponse;
@@ -204,7 +204,7 @@ public class ReadPlanStore {
                 .toList();
     }
 
-    public List<LegalBookResourceCandidate> searchLegalResourceCandidates(String keyword) {
+    public List<WebResourceCandidate> searchWebResourceCandidates(String keyword) {
         if (!hasText(keyword)) {
             throw new BusinessException(400, "搜索关键字不能为空");
         }
@@ -290,14 +290,14 @@ public class ReadPlanStore {
     }
 
     @Transactional
-    public List<BookSummary> importBooksFromLegalResources(List<LegalBookResourceCandidate> candidates,
+    public List<BookSummary> importBooksFromWebResources(List<WebResourceCandidate> candidates,
             List<String> tags) {
         if (candidates == null || candidates.isEmpty()) {
             throw new BusinessException(400, "请先选择要导入的公开资源");
         }
 
         List<BookSummary> importedBooks = new java.util.ArrayList<>();
-        for (LegalBookResourceCandidate candidate : candidates) {
+        for (WebResourceCandidate candidate : candidates) {
             if (!hasText(candidate.title())) {
                 continue;
             }

@@ -104,7 +104,7 @@ public final class ReadPlanPayloads {
     ) {
     }
 
-    public record LegalBookResourceCandidate(
+    public record WebResourceCandidate(
         String sourceId,
         String title,
         String author,

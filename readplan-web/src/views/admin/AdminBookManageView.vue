@@ -6,17 +6,17 @@ import {
   createBook,
   deleteBook,
   getAdminBooks,
-  importBooksFromLegalResources,
+  importBooksFromWebResources,
   importBooksFromOpenLibrary,
   searchOpenLibraryBooks,
-  searchLegalBookResources,
+  searchWebResources,
   updateBook,
   uploadBooksFromFile,
   uploadBookFile,
   type SaveBookPayload,
 } from '@/api/book/book';
 import AppPage from '@/components/common/AppPage.vue';
-import type { AdminImportCandidate, BookSummary, LegalBookResourceCandidate } from '@/types/readplan';
+import type { AdminImportCandidate, BookSummary, WebResourceCandidate } from '@/types/readplan';
 
 const loading = shallowRef(false);
 const crawlLoading = shallowRef(false);
@@ -32,7 +32,7 @@ const uploadTagText = shallowRef('');
 const legalTagText = shallowRef('公版资源');
 const selectedUploadFile = shallowRef<File | null>(null);
 const candidates = ref<AdminImportCandidate[]>([]);
-const legalResources = ref<LegalBookResourceCandidate[]>([]);
+const legalResources = ref<WebResourceCandidate[]>([]);
 const localBooks = ref<BookSummary[]>([]);
 const editingBook = ref<BookSummary | null>(null);
 const dialogUploadLoading = shallowRef(false);
@@ -89,7 +89,7 @@ const crawlCandidates = async () => {
 const searchLegalResources = async () => {
   legalLoading.value = true;
   try {
-    legalResources.value = await searchLegalBookResources(importKeyword.value);
+    legalResources.value = await searchWebResources(importKeyword.value);
     if (legalResources.value.length === 0) {
       ElMessage.info('没有找到合适资源，可以直接上传本地文件或手动建书。');
       return;
@@ -127,7 +127,7 @@ const importSelectedLegalResources = async () => {
   legalImportLoading.value = true;
 
   try {
-    const importedBooks = await importBooksFromLegalResources(
+    const importedBooks = await importBooksFromWebResources(
       legalResources.value,
       parseTagInput(legalTagText.value),
     );
@@ -336,8 +336,8 @@ onMounted(() => {
       <template #header>
         <div class="admin-section__header">
           <div>
-            <h2>资源搜索</h2>
-            <p>按书名搜索公开资源，目前接入 Open Library 和中文维基文库。</p>
+            <h2>Web Resource</h2>
+            <p>按主题或书名搜索网页资源，目前接入 Europe PMC、Open Library 和中文维基文库。</p>
           </div>
           <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
         </div>
@@ -347,7 +347,7 @@ onMounted(() => {
         <el-input
           v-model="importKeyword"
           clearable
-          placeholder="输入书名搜索资源或书目信息"
+          placeholder="输入主题、论文题目或书名搜索资源"
           @keyup.enter="searchLegalResources"
         />
         <el-input
@@ -355,7 +355,7 @@ onMounted(() => {
           clearable
           placeholder="导入时追加标签，例如：公版资源,公开书源"
         />
-        <el-button :loading="legalLoading" type="primary" @click="searchLegalResources">搜索公开资源</el-button>
+        <el-button :loading="legalLoading" type="primary" @click="searchLegalResources">搜索 Web Resource</el-button>
         <el-button :loading="legalImportLoading" @click="importSelectedLegalResources">导入所选资源</el-button>
       </div>
 

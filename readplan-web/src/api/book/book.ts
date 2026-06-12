@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 import type { ApiResponse, PageResult } from '@/types/api';
-import type { AdminImportCandidate, BookDetail, BookSummary, LegalBookResourceCandidate } from '@/types/readplan';
+import type { AdminImportCandidate, BookDetail, BookSummary, WebResourceCandidate } from '@/types/readplan';
 
 interface BookSummaryPayload {
   id: number;
@@ -45,7 +45,7 @@ interface AdminImportCandidatePayload {
   selected: boolean;
 }
 
-interface LegalBookResourceCandidatePayload {
+interface WebResourceCandidatePayload {
   sourceId: string;
   title: string;
   author: string;
@@ -110,9 +110,9 @@ const normalizeImportCandidate = (payload: AdminImportCandidatePayload): AdminIm
   selected: payload.selected ?? false,
 });
 
-const normalizeLegalResourceCandidate = (
-  payload: LegalBookResourceCandidatePayload,
-): LegalBookResourceCandidate => ({
+const normalizeWebResourceCandidate = (
+  payload: WebResourceCandidatePayload,
+): WebResourceCandidate => ({
   ...payload,
   cover: payload.cover || buildFallbackCover(payload.title),
   selected: payload.selected ?? false,
@@ -178,11 +178,11 @@ export const crawlBooksFromOpenLibrary = async (keyword: string): Promise<AdminI
   return data.data.map(normalizeImportCandidate);
 };
 
-export const searchLegalBookResources = async (keyword: string): Promise<LegalBookResourceCandidate[]> => {
-  const { data } = await request.get<ApiResponse<LegalBookResourceCandidatePayload[]>>('/admin/books/legal-resources', {
+export const searchWebResources = async (keyword: string): Promise<WebResourceCandidate[]> => {
+  const { data } = await request.get<ApiResponse<WebResourceCandidatePayload[]>>('/admin/books/web-resource', {
     params: { keyword },
   });
-  return data.data.map(normalizeLegalResourceCandidate);
+  return data.data.map(normalizeWebResourceCandidate);
 };
 
 export const importBooksFromOpenLibrary = async (
@@ -193,11 +193,11 @@ export const importBooksFromOpenLibrary = async (
   return data.data.map(normalizeBookSummary);
 };
 
-export const importBooksFromLegalResources = async (
-  resources: LegalBookResourceCandidate[],
+export const importBooksFromWebResources = async (
+  resources: WebResourceCandidate[],
   tags: string[],
 ): Promise<BookSummary[]> => {
-  const { data } = await request.post<ApiResponse<BookSummaryPayload[]>>('/admin/books/legal-resources/import', {
+  const { data } = await request.post<ApiResponse<BookSummaryPayload[]>>('/admin/books/web-resource/import', {
     resources,
     tags,
   });

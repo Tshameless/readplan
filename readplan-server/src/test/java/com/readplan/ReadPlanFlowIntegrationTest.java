@@ -217,7 +217,7 @@ class ReadPlanFlowIntegrationTest {
     void adminCanSearchAndImportLegalPublicResources() throws Exception {
         String adminToken = login("admin", "123456");
 
-        JsonNode resources = api(mockMvc.perform(get("/api/admin/books/legal-resources")
+        JsonNode resources = api(mockMvc.perform(get("/api/admin/books/web-resource")
                 .header("Authorization", bearer(adminToken))
                 .param("keyword", "alice"))
             .andExpect(status().isOk()))
@@ -227,7 +227,7 @@ class ReadPlanFlowIntegrationTest {
         assertThat(resources.size()).isGreaterThan(0);
 
         JsonNode first = resources.get(0);
-        JsonNode imported = api(mockMvc.perform(post("/api/admin/books/legal-resources/import")
+        JsonNode imported = api(mockMvc.perform(post("/api/admin/books/web-resource/import")
                 .header("Authorization", bearer(adminToken))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
