@@ -20,13 +20,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({
-        MethodArgumentNotValidException.class,
-        BindException.class,
-        ConstraintViolationException.class,
-        HttpMessageNotReadableException.class
+            MethodArgumentNotValidException.class,
+            BindException.class,
+            ConstraintViolationException.class,
+            HttpMessageNotReadableException.class
     })
     public ApiResponse<Void> handleBadRequest(Exception exception) {
-        return ApiResponse.failure(400, "请求参数不合法");
+        return ApiResponse.failure(400, "请求参数不");
     }
 
     @ExceptionHandler(SQLIntegrityConstraintViolationException.class)
@@ -42,6 +42,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleUnknownException(Exception exception) {
         exception.printStackTrace();
-        return ApiResponse.failure(500, "服务器内部异常: " + exception.getClass().getSimpleName() + " - " + exception.getMessage());
+        return ApiResponse.failure(500,
+                "服务器内部异常: " + exception.getClass().getSimpleName() + " - " + exception.getMessage());
     }
 }

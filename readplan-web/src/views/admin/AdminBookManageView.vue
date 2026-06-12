@@ -336,8 +336,8 @@ onMounted(() => {
       <template #header>
         <div class="admin-section__header">
           <div>
-            <h2>合法资源搜索</h2>
-            <p>按书名搜索合法公开资源、可预览资源和开放书目信息，目前接入 Open Library、Project Gutenberg、Google Books、Internet Archive、中文维基文库。</p>
+            <h2>资源搜索</h2>
+            <p>按书名搜索公开资源、可预览资源和开放书目信息，目前接入 Open Library、Project Gutenberg、Google Books、Internet Archive、中文维基文库。</p>
           </div>
           <el-tag type="success">已选 {{ selectedLegalCount }}</el-tag>
         </div>
@@ -347,7 +347,7 @@ onMounted(() => {
         <el-input
           v-model="importKeyword"
           clearable
-          placeholder="输入书名搜索合法资源或书目信息"
+          placeholder="输入书名搜索资源或书目信息"
           @keyup.enter="searchLegalResources"
         />
         <el-input

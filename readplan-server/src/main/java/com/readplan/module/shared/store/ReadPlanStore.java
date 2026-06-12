@@ -68,18 +68,17 @@ public class ReadPlanStore {
     private final Path bookStorageDir;
 
     public ReadPlanStore(
-        UserMapper userMapper,
-        BookMapper bookMapper,
-        ReadingPlanMapper readingPlanMapper,
-        NoteMapper noteMapper,
-        CommentMapper commentMapper,
-        ImportCandidateMapper importCandidateMapper,
-        BookCrawlerClient bookCrawlerClient,
-        LegalBookResourceClient legalBookResourceClient,
-        PasswordEncoder passwordEncoder,
-        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
-        @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir
-    ) {
+            UserMapper userMapper,
+            BookMapper bookMapper,
+            ReadingPlanMapper readingPlanMapper,
+            NoteMapper noteMapper,
+            CommentMapper commentMapper,
+            ImportCandidateMapper importCandidateMapper,
+            BookCrawlerClient bookCrawlerClient,
+            LegalBookResourceClient legalBookResourceClient,
+            PasswordEncoder passwordEncoder,
+            org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+            @Value("${readplan.storage.book-dir:./storage/books}") String bookStorageDir) {
         this.userMapper = userMapper;
         this.bookMapper = bookMapper;
         this.readingPlanMapper = readingPlanMapper;
@@ -105,11 +104,10 @@ public class ReadPlanStore {
 
     public UserState findUserByUsername(String username) {
         UserEntity entity = userMapper.selectOne(
-            Wrappers.<UserEntity>lambdaQuery()
-                .eq(UserEntity::getUsername, username)
-                .eq(UserEntity::getDeleted, 0)
-                .last("LIMIT 1")
-        );
+                Wrappers.<UserEntity>lambdaQuery()
+                        .eq(UserEntity::getUsername, username)
+                        .eq(UserEntity::getDeleted, 0)
+                        .last("LIMIT 1"));
         return entity == null ? null : toUserState(entity);
     }
 
@@ -122,94 +120,88 @@ public class ReadPlanStore {
     }
 
     public CurrentUser toCurrentUser(UserState user) {
-        return new CurrentUser(user.id(), user.username(), user.nickname(), List.of(user.role()), buildPermissions(user.role()));
+        return new CurrentUser(user.id(), user.username(), user.nickname(), List.of(user.role()),
+                buildPermissions(user.role()));
     }
 
     public UserInfoResponse toUserInfo(CurrentUser currentUser) {
         return new UserInfoResponse(
-            currentUser.id(),
-            currentUser.username(),
-            currentUser.nickname(),
-            currentUser.roles(),
-            currentUser.permissions()
-        );
+                currentUser.id(),
+                currentUser.username(),
+                currentUser.nickname(),
+                currentUser.roles(),
+                currentUser.permissions());
     }
 
     public PageResult<BookSummary> listBooks(String keyword, Integer pageNum, Integer pageSize) {
         int currentPage = Math.max(pageNum == null ? 1 : pageNum, 1);
         int size = Math.max(pageSize == null ? 10 : pageSize, 1);
         Page<BookEntity> page = bookMapper.selectPage(
-            new Page<>(currentPage, size),
-            Wrappers.<BookEntity>lambdaQuery()
-                .eq(BookEntity::getDeleted, 0)
-                .and(hasText(keyword), wrapper -> wrapper
-                    .like(BookEntity::getTitle, keyword.trim())
-                    .or()
-                    .like(BookEntity::getAuthor, keyword.trim())
-                    .or()
-                    .like(BookEntity::getTags, keyword.trim())
-                )
-                .orderByAsc(BookEntity::getId)
-        );
+                new Page<>(currentPage, size),
+                Wrappers.<BookEntity>lambdaQuery()
+                        .eq(BookEntity::getDeleted, 0)
+                        .and(hasText(keyword), wrapper -> wrapper
+                                .like(BookEntity::getTitle, keyword.trim())
+                                .or()
+                                .like(BookEntity::getAuthor, keyword.trim())
+                                .or()
+                                .like(BookEntity::getTags, keyword.trim()))
+                        .orderByAsc(BookEntity::getId));
         return PageResult.of(
-            page.getTotal(),
-            page.getPages(),
-            page.getRecords().stream().map(this::toBookSummary).toList()
-        );
+                page.getTotal(),
+                page.getPages(),
+                page.getRecords().stream().map(this::toBookSummary).toList());
     }
 
     public BookDetail getBookDetail(Long bookId) {
         BookEntity book = requireBookIncludingDeleted(bookId);
         List<PublicNote> notes = getBookNotes(bookId);
         long planCount = readingPlanMapper.selectCount(
-            Wrappers.<ReadingPlanEntity>lambdaQuery()
-                .eq(ReadingPlanEntity::getBookId, bookId)
-                .eq(ReadingPlanEntity::getDeleted, 0)
-        );
+                Wrappers.<ReadingPlanEntity>lambdaQuery()
+                        .eq(ReadingPlanEntity::getBookId, bookId)
+                        .eq(ReadingPlanEntity::getDeleted, 0));
         return new BookDetail(
-            book.getId(),
-            book.getTitle(),
-            defaultString(book.getAuthor()),
-            defaultString(book.getCover()),
-            defaultNumber(book.getPublishYear()),
-            defaultString(book.getDescription()),
-            splitTags(book.getTags()),
-            isTrue(book.getImported()),
-            defaultString(book.getIsbn()),
-            defaultString(book.getOlId()),
-            defaultString(book.getFileType()),
-            toFileUrl(book.getFilePath()),
-            notes.size(),
-            (int) planCount,
-            notes
-        );
+                book.getId(),
+                book.getTitle(),
+                defaultString(book.getAuthor()),
+                defaultString(book.getCover()),
+                defaultNumber(book.getPublishYear()),
+                defaultString(book.getDescription()),
+                splitTags(book.getTags()),
+                isTrue(book.getImported()),
+                defaultString(book.getIsbn()),
+                defaultString(book.getOlId()),
+                defaultString(book.getFileType()),
+                toFileUrl(book.getFilePath()),
+                notes.size(),
+                (int) planCount,
+                notes);
     }
 
     public List<BookSummary> listAdminBooks() {
         return bookMapper.selectList(
-            Wrappers.<BookEntity>lambdaQuery()
-                .eq(BookEntity::getDeleted, 0)
-                .orderByAsc(BookEntity::getId)
-        ).stream().map(this::toBookSummary).toList();
+                Wrappers.<BookEntity>lambdaQuery()
+                        .eq(BookEntity::getDeleted, 0)
+                        .orderByAsc(BookEntity::getId))
+                .stream().map(this::toBookSummary).toList();
     }
 
     public List<AdminImportCandidate> searchImportCandidates(String keyword) {
         return importCandidateMapper.selectList(
-            Wrappers.<ImportCandidateEntity>lambdaQuery()
-                .and(hasText(keyword), wrapper -> wrapper
-                    .like(ImportCandidateEntity::getTitle, keyword.trim())
-                    .or()
-                    .like(ImportCandidateEntity::getAuthor, keyword.trim())
-                )
-                .orderByAsc(ImportCandidateEntity::getOlId)
-        ).stream().map(candidate -> new AdminImportCandidate(
-            candidate.getOlId(),
-            candidate.getTitle(),
-            defaultString(candidate.getAuthor()),
-            candidate.getFirstPublishYear(),
-            defaultString(candidate.getCover()),
-            false
-        )).toList();
+                Wrappers.<ImportCandidateEntity>lambdaQuery()
+                        .and(hasText(keyword), wrapper -> wrapper
+                                .like(ImportCandidateEntity::getTitle, keyword.trim())
+                                .or()
+                                .like(ImportCandidateEntity::getAuthor, keyword.trim()))
+                        .orderByAsc(ImportCandidateEntity::getOlId))
+                .stream().map(candidate -> new AdminImportCandidate(
+                        candidate.getOlId(),
+                        candidate.getTitle(),
+                        defaultString(candidate.getAuthor()),
+                        candidate.getFirstPublishYear(),
+                        defaultString(candidate.getCover()),
+                        false))
+                .toList();
     }
 
     public List<LegalBookResourceCandidate> searchLegalResourceCandidates(String keyword) {
@@ -229,7 +221,8 @@ public class ReadPlanStore {
         List<AdminImportCandidate> results = new java.util.ArrayList<>();
         for (int index = 0; index < crawled.size(); index++) {
             CrawlBookCandidate candidate = crawled.get(index);
-            String olId = hasText(candidate.olId()) ? candidate.olId() : "CRAWL-" + System.currentTimeMillis() + "-" + index;
+            String olId = hasText(candidate.olId()) ? candidate.olId()
+                    : "CRAWL-" + System.currentTimeMillis() + "-" + index;
             ImportCandidateEntity entity = new ImportCandidateEntity();
             entity.setOlId(olId);
             entity.setTitle(candidate.title());
@@ -242,13 +235,12 @@ public class ReadPlanStore {
             importCandidateMapper.deleteById(olId);
             importCandidateMapper.insert(entity);
             results.add(new AdminImportCandidate(
-                olId,
-                candidate.title(),
-                defaultString(candidate.author()),
-                defaultNumber(candidate.publishYear()),
-                defaultString(candidate.cover()),
-                false
-            ));
+                    olId,
+                    candidate.title(),
+                    defaultString(candidate.author()),
+                    defaultNumber(candidate.publishYear()),
+                    defaultString(candidate.cover()),
+                    false));
         }
         return results;
     }
@@ -267,8 +259,7 @@ public class ReadPlanStore {
             }
 
             Long exists = bookMapper.selectCount(
-                Wrappers.<BookEntity>lambdaQuery().eq(BookEntity::getOlId, candidate.getOlId())
-            );
+                    Wrappers.<BookEntity>lambdaQuery().eq(BookEntity::getOlId, candidate.getOlId()));
             if (exists != null && exists > 0) {
                 continue;
             }
@@ -282,8 +273,8 @@ public class ReadPlanStore {
             book.setIsbn(defaultString(candidate.getIsbn()));
             book.setOlId(candidate.getOlId());
             book.setDescription(hasText(candidate.getDescription())
-                ? candidate.getDescription()
-                : "来自 Open Library 检索结果，等待管理员补充 ISBN、简介等本地字段。");
+                    ? candidate.getDescription()
+                    : "来自 Open Library 检索结果，等待管理员补充 ISBN、简介等本地字段。");
             book.setTags(hasText(candidate.getTags()) ? candidate.getTags() : "抓取导入,待完善");
             book.setFilePath("");
             book.setFileType("");
@@ -299,7 +290,8 @@ public class ReadPlanStore {
     }
 
     @Transactional
-    public List<BookSummary> importBooksFromLegalResources(List<LegalBookResourceCandidate> candidates, List<String> tags) {
+    public List<BookSummary> importBooksFromLegalResources(List<LegalBookResourceCandidate> candidates,
+            List<String> tags) {
         if (candidates == null || candidates.isEmpty()) {
             throw new BusinessException(400, "请先选择要导入的公开资源");
         }
@@ -311,27 +303,25 @@ public class ReadPlanStore {
             }
 
             Long exists = bookMapper.selectCount(
-                Wrappers.<BookEntity>lambdaQuery()
-                    .eq(BookEntity::getTitle, candidate.title())
-                    .eq(BookEntity::getAuthor, defaultString(candidate.author()))
-                    .eq(BookEntity::getDeleted, 0)
-            );
+                    Wrappers.<BookEntity>lambdaQuery()
+                            .eq(BookEntity::getTitle, candidate.title())
+                            .eq(BookEntity::getAuthor, defaultString(candidate.author()))
+                            .eq(BookEntity::getDeleted, 0));
             if (exists != null && exists > 0) {
                 continue;
             }
 
             importedBooks.add(createBook(
-                candidate.title(),
-                candidate.author(),
-                candidate.cover(),
-                defaultNumber(candidate.publishYear()),
-                "",
-                candidate.sourceId(),
-                hasText(candidate.description()) ? candidate.description() : "来自合法公开书源导入。",
-                mergeTagLists(tags, List.of(candidate.sourceName(), candidate.resourceType())),
-                candidate.resourceUrl(),
-                candidate.resourceType()
-            ));
+                    candidate.title(),
+                    candidate.author(),
+                    candidate.cover(),
+                    defaultNumber(candidate.publishYear()),
+                    "",
+                    candidate.sourceId(),
+                    hasText(candidate.description()) ? candidate.description() : "来自公开书源导入。",
+                    mergeTagLists(tags, List.of(candidate.sourceName(), candidate.resourceType())),
+                    candidate.resourceUrl(),
+                    candidate.resourceType()));
         }
 
         return importedBooks;
@@ -339,42 +329,39 @@ public class ReadPlanStore {
 
     @Transactional
     public BookSummary createBook(
-        String title,
-        String author,
-        String cover,
-        Integer publishYear,
-        String isbn,
-        String olId,
-        String description,
-        List<String> tags
-    ) {
+            String title,
+            String author,
+            String cover,
+            Integer publishYear,
+            String isbn,
+            String olId,
+            String description,
+            List<String> tags) {
         return createBook(
-            title,
-            author,
-            cover,
-            publishYear,
-            isbn,
-            olId,
-            description,
-            tags,
-            "",
-            ""
-        );
+                title,
+                author,
+                cover,
+                publishYear,
+                isbn,
+                olId,
+                description,
+                tags,
+                "",
+                "");
     }
 
     @Transactional
     public BookSummary createBook(
-        String title,
-        String author,
-        String cover,
-        Integer publishYear,
-        String isbn,
-        String olId,
-        String description,
-        List<String> tags,
-        String filePath,
-        String fileType
-    ) {
+            String title,
+            String author,
+            String cover,
+            Integer publishYear,
+            String isbn,
+            String olId,
+            String description,
+            List<String> tags,
+            String filePath,
+            String fileType) {
         LocalDateTime now = LocalDateTime.now();
         BookEntity book = new BookEntity();
         book.setTitle(title);
@@ -397,16 +384,15 @@ public class ReadPlanStore {
 
     @Transactional
     public BookSummary updateBook(
-        Long id,
-        String title,
-        String author,
-        String cover,
-        Integer publishYear,
-        String isbn,
-        String olId,
-        String description,
-        List<String> tags
-    ) {
+            Long id,
+            String title,
+            String author,
+            String cover,
+            Integer publishYear,
+            String isbn,
+            String olId,
+            String description,
+            List<String> tags) {
         BookEntity book = requireBook(id);
         book.setTitle(title);
         book.setAuthor(defaultString(author));
@@ -434,7 +420,7 @@ public class ReadPlanStore {
         try {
             byte[] fileContent = file.getBytes();
             saveBookFileToDb(id, fileContent);
-            
+
             book.setFilePath("db:" + id);
             book.setFileType("PDF");
             book.setUpdatedAt(LocalDateTime.now());
@@ -479,33 +465,31 @@ public class ReadPlanStore {
 
     public List<ReadingPlanItem> getPlans(Long userId) {
         return readingPlanMapper.selectList(
-            Wrappers.<ReadingPlanEntity>lambdaQuery()
-                .eq(ReadingPlanEntity::getUserId, userId)
-                .eq(ReadingPlanEntity::getDeleted, 0)
-                .orderByDesc(ReadingPlanEntity::getUpdatedAt)
-        ).stream().map(plan -> {
-            BookEntity book = requireBookIncludingDeleted(plan.getBookId());
-            boolean bookDeleted = isDeleted(book.getDeleted());
-            return new ReadingPlanItem(
-                plan.getId(),
-                toBookSummary(book),
-                defaultNumber(plan.getStatus()),
-                bookDeleted ? "OFFLINE" : "ACTIVE",
-                format(plan.getUpdatedAt()),
-                defaultNumber(plan.getStatus()) != 0
-            );
-        }).toList();
+                Wrappers.<ReadingPlanEntity>lambdaQuery()
+                        .eq(ReadingPlanEntity::getUserId, userId)
+                        .eq(ReadingPlanEntity::getDeleted, 0)
+                        .orderByDesc(ReadingPlanEntity::getUpdatedAt))
+                .stream().map(plan -> {
+                    BookEntity book = requireBookIncludingDeleted(plan.getBookId());
+                    boolean bookDeleted = isDeleted(book.getDeleted());
+                    return new ReadingPlanItem(
+                            plan.getId(),
+                            toBookSummary(book),
+                            defaultNumber(plan.getStatus()),
+                            bookDeleted ? "OFFLINE" : "ACTIVE",
+                            format(plan.getUpdatedAt()),
+                            defaultNumber(plan.getStatus()) != 0);
+                }).toList();
     }
 
     @Transactional
     public ReadingPlanItem addPlan(Long userId, Long bookId, Integer status) {
         requireBookIncludingDeleted(bookId);
         Long exists = readingPlanMapper.selectCount(
-            Wrappers.<ReadingPlanEntity>lambdaQuery()
-                .eq(ReadingPlanEntity::getUserId, userId)
-                .eq(ReadingPlanEntity::getBookId, bookId)
-                .eq(ReadingPlanEntity::getDeleted, 0)
-        );
+                Wrappers.<ReadingPlanEntity>lambdaQuery()
+                        .eq(ReadingPlanEntity::getUserId, userId)
+                        .eq(ReadingPlanEntity::getBookId, bookId)
+                        .eq(ReadingPlanEntity::getDeleted, 0));
         if (exists != null && exists > 0) {
             throw new BusinessException(400, "该书已经加入阅读计划");
         }
@@ -547,46 +531,45 @@ public class ReadPlanStore {
 
     public List<UserNoteSummary> getUserNotes(Long userId) {
         return noteMapper.selectList(
-            Wrappers.<NoteEntity>lambdaQuery()
-                .eq(NoteEntity::getUserId, userId)
-                .eq(NoteEntity::getDeleted, 0)
-                .orderByDesc(NoteEntity::getCreatedAt)
-        ).stream().map(note -> new UserNoteSummary(
-            note.getId(),
-            note.getBookId(),
-            requireBookIncludingDeleted(note.getBookId()).getTitle(),
-            defaultString(note.getTitle()),
-            defaultString(note.getContent()),
-            format(note.getCreatedAt()),
-            countComments(note.getId())
-        )).toList();
+                Wrappers.<NoteEntity>lambdaQuery()
+                        .eq(NoteEntity::getUserId, userId)
+                        .eq(NoteEntity::getDeleted, 0)
+                        .orderByDesc(NoteEntity::getCreatedAt))
+                .stream().map(note -> new UserNoteSummary(
+                        note.getId(),
+                        note.getBookId(),
+                        requireBookIncludingDeleted(note.getBookId()).getTitle(),
+                        defaultString(note.getTitle()),
+                        defaultString(note.getContent()),
+                        format(note.getCreatedAt()),
+                        countComments(note.getId())))
+                .toList();
     }
 
     public List<PublicNote> getBookNotes(Long bookId) {
         return noteMapper.selectList(
-            Wrappers.<NoteEntity>lambdaQuery()
-                .eq(NoteEntity::getBookId, bookId)
-                .eq(NoteEntity::getDeleted, 0)
-                .orderByDesc(NoteEntity::getCreatedAt)
-        ).stream().map(note -> new PublicNote(
-            note.getId(),
-            defaultString(note.getTitle()),
-            requireUser(note.getUserId()).nickname(),
-            defaultString(note.getContent()),
-            format(note.getCreatedAt()),
-            countComments(note.getId())
-        )).toList();
+                Wrappers.<NoteEntity>lambdaQuery()
+                        .eq(NoteEntity::getBookId, bookId)
+                        .eq(NoteEntity::getDeleted, 0)
+                        .orderByDesc(NoteEntity::getCreatedAt))
+                .stream().map(note -> new PublicNote(
+                        note.getId(),
+                        defaultString(note.getTitle()),
+                        requireUser(note.getUserId()).nickname(),
+                        defaultString(note.getContent()),
+                        format(note.getCreatedAt()),
+                        countComments(note.getId())))
+                .toList();
     }
 
     @Transactional
     public UserNoteSummary createNote(Long userId, Long bookId, String title, String content) {
         ReadingPlanEntity plan = readingPlanMapper.selectOne(
-            Wrappers.<ReadingPlanEntity>lambdaQuery()
-                .eq(ReadingPlanEntity::getUserId, userId)
-                .eq(ReadingPlanEntity::getBookId, bookId)
-                .eq(ReadingPlanEntity::getDeleted, 0)
-                .last("LIMIT 1")
-        );
+                Wrappers.<ReadingPlanEntity>lambdaQuery()
+                        .eq(ReadingPlanEntity::getUserId, userId)
+                        .eq(ReadingPlanEntity::getBookId, bookId)
+                        .eq(ReadingPlanEntity::getDeleted, 0)
+                        .last("LIMIT 1"));
         if (plan == null || defaultNumber(plan.getStatus()) == 0) {
             throw new BusinessException(400, "只有加入阅读计划且开始阅读后才能写笔记");
         }
@@ -648,17 +631,17 @@ public class ReadPlanStore {
 
     public List<CommentItem> getComments(Long noteId, Long currentUserId) {
         return commentMapper.selectList(
-            Wrappers.<CommentEntity>lambdaQuery()
-                .eq(CommentEntity::getNoteId, noteId)
-                .eq(CommentEntity::getDeleted, 0)
-                .orderByDesc(CommentEntity::getCreatedAt)
-        ).stream().map(comment -> new CommentItem(
-            comment.getId(),
-            requireUser(comment.getUserId()).nickname(),
-            defaultString(comment.getContent()),
-            format(comment.getCreatedAt()),
-            canDeleteComment(currentUserId, comment)
-        )).toList();
+                Wrappers.<CommentEntity>lambdaQuery()
+                        .eq(CommentEntity::getNoteId, noteId)
+                        .eq(CommentEntity::getDeleted, 0)
+                        .orderByDesc(CommentEntity::getCreatedAt))
+                .stream().map(comment -> new CommentItem(
+                        comment.getId(),
+                        requireUser(comment.getUserId()).nickname(),
+                        defaultString(comment.getContent()),
+                        format(comment.getCreatedAt()),
+                        canDeleteComment(currentUserId, comment)))
+                .toList();
     }
 
     @Transactional
@@ -671,8 +654,8 @@ public class ReadPlanStore {
         UserState currentUser = requireUser(currentUserId);
         NoteEntity note = noteMapper.selectById(comment.getNoteId());
         boolean canDelete = Objects.equals(comment.getUserId(), currentUserId)
-            || (note != null && !isDeleted(note.getDeleted()) && Objects.equals(note.getUserId(), currentUserId))
-            || "ADMIN".equals(currentUser.role());
+                || (note != null && !isDeleted(note.getDeleted()) && Objects.equals(note.getUserId(), currentUserId))
+                || "ADMIN".equals(currentUser.role());
 
         if (!canDelete) {
             throw new BusinessException(403, "无权限删除该评论");
@@ -691,8 +674,8 @@ public class ReadPlanStore {
         UserState currentUser = requireUser(currentUserId);
         NoteEntity note = noteMapper.selectById(comment.getNoteId());
         return Objects.equals(comment.getUserId(), currentUserId)
-            || (note != null && !isDeleted(note.getDeleted()) && Objects.equals(note.getUserId(), currentUserId))
-            || "ADMIN".equals(currentUser.role());
+                || (note != null && !isDeleted(note.getDeleted()) && Objects.equals(note.getUserId(), currentUserId))
+                || "ADMIN".equals(currentUser.role());
     }
 
     private UserState insertUser(String username, String encodedPassword, String nickname, String role) {
@@ -713,60 +696,55 @@ public class ReadPlanStore {
     private ReadingPlanItem toReadingPlanItem(ReadingPlanEntity plan, BookEntity book) {
         boolean bookDeleted = isDeleted(book.getDeleted());
         return new ReadingPlanItem(
-            plan.getId(),
-            toBookSummary(book),
-            defaultNumber(plan.getStatus()),
-            bookDeleted ? "OFFLINE" : "ACTIVE",
-            format(plan.getUpdatedAt()),
-            defaultNumber(plan.getStatus()) != 0
-        );
+                plan.getId(),
+                toBookSummary(book),
+                defaultNumber(plan.getStatus()),
+                bookDeleted ? "OFFLINE" : "ACTIVE",
+                format(plan.getUpdatedAt()),
+                defaultNumber(plan.getStatus()) != 0);
     }
 
     private UserNoteSummary toUserNoteSummary(NoteEntity note) {
         return new UserNoteSummary(
-            note.getId(),
-            note.getBookId(),
-            requireBookIncludingDeleted(note.getBookId()).getTitle(),
-            defaultString(note.getTitle()),
-            defaultString(note.getContent()),
-            format(note.getCreatedAt()),
-            countComments(note.getId())
-        );
+                note.getId(),
+                note.getBookId(),
+                requireBookIncludingDeleted(note.getBookId()).getTitle(),
+                defaultString(note.getTitle()),
+                defaultString(note.getContent()),
+                format(note.getCreatedAt()),
+                countComments(note.getId()));
     }
 
     private BookSummary toBookSummary(BookEntity book) {
         return new BookSummary(
-            book.getId(),
-            book.getTitle(),
-            defaultString(book.getAuthor()),
-            defaultString(book.getCover()),
-            defaultNumber(book.getPublishYear()),
-            defaultString(book.getDescription()),
-            splitTags(book.getTags()),
-            isTrue(book.getImported()),
-            defaultString(book.getIsbn()),
-            defaultString(book.getOlId()),
-            defaultString(book.getFileType()),
-            toFileUrl(book.getFilePath())
-        );
+                book.getId(),
+                book.getTitle(),
+                defaultString(book.getAuthor()),
+                defaultString(book.getCover()),
+                defaultNumber(book.getPublishYear()),
+                defaultString(book.getDescription()),
+                splitTags(book.getTags()),
+                isTrue(book.getImported()),
+                defaultString(book.getIsbn()),
+                defaultString(book.getOlId()),
+                defaultString(book.getFileType()),
+                toFileUrl(book.getFilePath()));
     }
 
     private UserState toUserState(UserEntity entity) {
         return new UserState(
-            entity.getId(),
-            entity.getUsername(),
-            entity.getPassword(),
-            defaultString(entity.getNickname()),
-            toRoleName(entity.getRole())
-        );
+                entity.getId(),
+                entity.getUsername(),
+                entity.getPassword(),
+                defaultString(entity.getNickname()),
+                toRoleName(entity.getRole()));
     }
 
     private int countComments(Long noteId) {
         Long count = commentMapper.selectCount(
-            Wrappers.<CommentEntity>lambdaQuery()
-                .eq(CommentEntity::getNoteId, noteId)
-                .eq(CommentEntity::getDeleted, 0)
-        );
+                Wrappers.<CommentEntity>lambdaQuery()
+                        .eq(CommentEntity::getNoteId, noteId)
+                        .eq(CommentEntity::getDeleted, 0));
         return count == null ? 0 : count.intValue();
     }
 
@@ -806,19 +784,19 @@ public class ReadPlanStore {
             return List.of();
         }
         return Arrays.stream(tags.split(","))
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
-            .toList();
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
     }
 
     private String joinTags(List<String> tags, String fallback) {
         Set<String> values = new LinkedHashSet<>();
         if (tags != null) {
             values.addAll(tags.stream()
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .collect(Collectors.toList()));
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(value -> !value.isEmpty())
+                    .collect(Collectors.toList()));
         }
         if (values.isEmpty() && hasText(fallback)) {
             values.add(fallback);
@@ -842,15 +820,14 @@ public class ReadPlanStore {
                     continue;
                 }
                 imported.add(createBook(
-                    parts[0].trim(),
-                    parts[1].trim(),
-                    parts[2].trim(),
-                    parseInteger(parts[3]),
-                    parts[4].trim(),
-                    parts[5].trim(),
-                    parts.length > 6 ? parts[6].trim() : "",
-                    mergeTags(tags, parts.length > 7 ? parts[7] : "")
-                ));
+                        parts[0].trim(),
+                        parts[1].trim(),
+                        parts[2].trim(),
+                        parseInteger(parts[3]),
+                        parts[4].trim(),
+                        parts[5].trim(),
+                        parts.length > 6 ? parts[6].trim() : "",
+                        mergeTags(tags, parts.length > 7 ? parts[7] : "")));
             }
         }
         return imported;
@@ -865,17 +842,16 @@ public class ReadPlanStore {
         }
         for (com.fasterxml.jackson.databind.JsonNode item : root) {
             imported.add(createBook(
-                item.path("title").asText(""),
-                item.path("author").asText(""),
-                item.path("cover").asText(""),
-                parseInteger(item.path("publishYear").asText("0")),
-                item.path("isbn").asText(""),
-                item.path("olId").asText(""),
-                item.path("description").asText(""),
-                mergeTags(tags, item.path("tags").isArray()
-                    ? joinTags(jsonTags(item.path("tags")), "")
-                    : item.path("tags").asText(""))
-            ));
+                    item.path("title").asText(""),
+                    item.path("author").asText(""),
+                    item.path("cover").asText(""),
+                    parseInteger(item.path("publishYear").asText("0")),
+                    item.path("isbn").asText(""),
+                    item.path("olId").asText(""),
+                    item.path("description").asText(""),
+                    mergeTags(tags, item.path("tags").isArray()
+                            ? joinTags(jsonTags(item.path("tags")), "")
+                            : item.path("tags").asText(""))));
         }
         return imported;
     }
@@ -885,24 +861,23 @@ public class ReadPlanStore {
         byte[] fileContent = file.getBytes();
 
         BookSummary summary = createBook(
-            extractDisplayTitle(originalFilename),
-            "",
-            "",
-            0,
-            "",
-            "",
-            "本地 PDF 文件上传，可在后台继续补充作者、出版年份和简介。",
-            mergeTags(tags, "本地文件,PDF"),
-            "",
-            "PDF"
-        );
-        
+                extractDisplayTitle(originalFilename),
+                "",
+                "",
+                0,
+                "",
+                "",
+                "本地 PDF 文件上传，可在后台继续补充作者、出版年份和简介。",
+                mergeTags(tags, "本地文件,PDF"),
+                "",
+                "PDF");
+
         saveBookFileToDb(summary.id(), fileContent);
-        
+
         BookEntity book = bookMapper.selectById(summary.id());
         book.setFilePath("db:" + summary.id());
         bookMapper.updateById(book);
-        
+
         return toBookSummary(book);
     }
 
@@ -930,10 +905,10 @@ public class ReadPlanStore {
 
     private String sanitizeFilename(String filename) {
         return defaultString(filename)
-            .replaceAll("[\\\\/:*?\"<>|]", "-")
-            .replaceAll("\\s+", "-")
-            .replaceAll("-{2,}", "-")
-            .trim();
+                .replaceAll("[\\\\/:*?\"<>|]", "-")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-{2,}", "-")
+                .trim();
     }
 
     private List<String> jsonTags(com.fasterxml.jackson.databind.JsonNode tagsNode) {
@@ -970,9 +945,9 @@ public class ReadPlanStore {
             return List.of();
         }
         return Arrays.stream(raw.split("[,|/;，；、]"))
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
-            .toList();
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
     }
 
     private String toFileUrl(String filePath) {
@@ -989,7 +964,8 @@ public class ReadPlanStore {
     }
 
     private void saveBookFileToDb(Long bookId, byte[] content) {
-        Long exists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM book_file WHERE book_id = ?", Long.class, bookId);
+        Long exists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM book_file WHERE book_id = ?", Long.class,
+                bookId);
         if (exists != null && exists > 0) {
             jdbcTemplate.update("UPDATE book_file SET file_content = ? WHERE book_id = ?", content, bookId);
         } else {
@@ -1039,20 +1015,17 @@ public class ReadPlanStore {
 
     public List<DashboardStat> getDashboardStats() {
         Long booksCount = bookMapper.selectCount(
-            Wrappers.<BookEntity>lambdaQuery().eq(BookEntity::getDeleted, 0)
-        );
+                Wrappers.<BookEntity>lambdaQuery().eq(BookEntity::getDeleted, 0));
         Long notesCount = noteMapper.selectCount(
-            Wrappers.<NoteEntity>lambdaQuery().eq(NoteEntity::getDeleted, 0)
-        );
+                Wrappers.<NoteEntity>lambdaQuery().eq(NoteEntity::getDeleted, 0));
         Long plansCount = readingPlanMapper.selectCount(
-            Wrappers.<ReadingPlanEntity>lambdaQuery().eq(ReadingPlanEntity::getDeleted, 0)
-        );
+                Wrappers.<ReadingPlanEntity>lambdaQuery().eq(ReadingPlanEntity::getDeleted, 0));
 
         return List.of(
-            new DashboardStat("已入库书籍", String.valueOf(booksCount == null ? 0 : booksCount), "支持前台浏览、后台导入和软删除。"),
-            new DashboardStat("公开笔记", String.valueOf(notesCount == null ? 0 : notesCount), "所有读书笔记默认公开可见，可继续扩展评论流。"),
-            new DashboardStat("活跃阅读计划", String.valueOf(plansCount == null ? 0 : plansCount), "阅读状态分为未开始、阅读中、已读完。")
-        );
+                new DashboardStat("已入库书籍", String.valueOf(booksCount == null ? 0 : booksCount), "支持前台浏览、后台导入和软删除。"),
+                new DashboardStat("公开笔记", String.valueOf(notesCount == null ? 0 : notesCount),
+                        "所有读书笔记默认公开可见，可继续扩展评论流。"),
+                new DashboardStat("活跃阅读计划", String.valueOf(plansCount == null ? 0 : plansCount), "阅读状态分为未开始、阅读中、已读完。"));
     }
 
     public record UserState(Long id, String username, String password, String nickname, String role) {

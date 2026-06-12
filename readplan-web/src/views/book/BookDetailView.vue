@@ -171,7 +171,7 @@ onUnmounted(() => {
                   去后台上传关联 PDF
                 </el-button>
               </div>
-              <p class="detail-empty-tip">当前已不再提供全网自动爬取 PDF，请使用后台合法资源搜索或本地上传。</p>
+              <p class="detail-empty-tip">当前已不再提供全网自动爬取 PDF，请使用后台资源搜索或本地上传。</p>
             </el-empty>
           </section>
 
