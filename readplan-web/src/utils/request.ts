@@ -9,7 +9,7 @@ import { message } from '@/utils/message';
 
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api',
-  timeout: 8000,
+  timeout: 20000,
 });
 
 request.interceptors.request.use((config) => {

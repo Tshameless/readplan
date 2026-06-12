@@ -5,6 +5,7 @@ import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCand
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,7 +37,9 @@ public class LegalBookResourceClient {
             safeSearch(() -> searchOpenLibraryPublic(keyword, perSourceLimit)),
             safeSearch(() -> searchProjectGutenberg(keyword, perSourceLimit)),
             safeSearch(() -> searchGoogleBooks(keyword, perSourceLimit)),
-            safeSearch(() -> searchOpenLibraryCatalog(keyword, perSourceLimit))
+            safeSearch(() -> searchOpenLibraryCatalog(keyword, perSourceLimit)),
+            safeSearch(() -> searchInternetArchive(keyword, perSourceLimit)),
+            safeSearch(() -> searchChineseWikisource(keyword, perSourceLimit))
         );
     }
 
@@ -185,6 +188,114 @@ public class LegalBookResourceClient {
         return candidates;
     }
 
+    private List<LegalBookResourceCandidate> searchInternetArchive(String keyword, int limit) {
+        JsonNode root = webClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .scheme("https")
+                .host("archive.org")
+                .path("/advancedsearch.php")
+                .queryParam("q", "title:(" + keyword + ") AND mediatype:(texts)")
+                .queryParam("fl[]", "identifier")
+                .queryParam("fl[]", "title")
+                .queryParam("fl[]", "creator")
+                .queryParam("fl[]", "year")
+                .queryParam("rows", limit)
+                .queryParam("page", 1)
+                .queryParam("output", "json")
+                .build())
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .block();
+
+        List<LegalBookResourceCandidate> candidates = new ArrayList<>();
+        JsonNode docs = root == null ? null : root.path("response").path("docs");
+        if (docs == null || !docs.isArray()) {
+            return candidates;
+        }
+
+        for (JsonNode doc : docs) {
+            String identifier = doc.path("identifier").asText("");
+            String title = doc.path("title").asText("");
+            if (identifier.isBlank() || title.isBlank()) {
+                continue;
+            }
+
+            String author = textOrFirstArray(doc.path("creator"));
+            Integer year = extractYear(doc.path("year").asText(""));
+            String resourceUrl = "https://archive.org/details/" + identifier;
+            String cover = "https://archive.org/services/img/" + identifier;
+
+            candidates.add(new LegalBookResourceCandidate(
+                "ARCHIVE:" + identifier,
+                title,
+                author,
+                year,
+                cover,
+                resourceUrl,
+                "ARCHIVE_TEXT",
+                "Internet Archive",
+                "Internet Archive 公开馆藏条目，可查看文本详情、借阅状态或可用文件。",
+                false
+            ));
+        }
+
+        return candidates;
+    }
+
+    private List<LegalBookResourceCandidate> searchChineseWikisource(String keyword, int limit) {
+        JsonNode root = webClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .scheme("https")
+                .host("zh.wikisource.org")
+                .path("/w/api.php")
+                .queryParam("action", "query")
+                .queryParam("list", "search")
+                .queryParam("srsearch", keyword)
+                .queryParam("format", "json")
+                .queryParam("srlimit", limit)
+                .queryParam("utf8", 1)
+                .build())
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .block();
+
+        List<LegalBookResourceCandidate> candidates = new ArrayList<>();
+        JsonNode results = root == null ? null : root.path("query").path("search");
+        if (results == null || !results.isArray()) {
+            return candidates;
+        }
+
+        for (JsonNode item : results) {
+            String title = item.path("title").asText("");
+            long pageId = item.path("pageid").asLong(0);
+            if (title.isBlank() || pageId <= 0) {
+                continue;
+            }
+
+            String resourceUrl = "https://zh.wikisource.org/wiki/" + URLEncoder.encode(title, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+            String snippet = item.path("snippet").asText("")
+                .replaceAll("<[^>]+>", "")
+                .replace("&quot;", "\"")
+                .replace("&amp;", "&");
+
+            candidates.add(new LegalBookResourceCandidate(
+                "ZHWIKISOURCE:" + pageId,
+                title,
+                "中文维基文库",
+                0,
+                "",
+                resourceUrl,
+                "PUBLIC_TEXT",
+                "中文维基文库",
+                hasText(snippet) ? snippet : "中文维基文库公开文本，可在线阅读。",
+                false
+            ));
+        }
+
+        return candidates;
+    }
+
     private List<LegalBookResourceCandidate> searchOpenLibraryPublic(String keyword, int limit) {
         JsonNode root = webClient.get()
             .uri(uriBuilder -> uriBuilder
@@ -303,6 +414,16 @@ public class LegalBookResourceClient {
         return values.get(0).asText("");
     }
 
+    private String textOrFirstArray(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return "";
+        }
+        if (node.isArray()) {
+            return node.isEmpty() ? "" : node.get(0).asText("");
+        }
+        return node.asText("");
+    }
+
     private Integer extractYear(String publishedDate) {
         if (publishedDate == null || publishedDate.isBlank()) {
             return 0;
@@ -330,6 +451,10 @@ public class LegalBookResourceClient {
             case "PARTIAL", "SAMPLE" -> "Google Books 提供部分预览，可查看书目详情与试读内容。";
             default -> "Google Books 提供合法书目信息入口，是否可预览取决于地区和版权状态。";
         };
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String text(Element entry, String localName) {
