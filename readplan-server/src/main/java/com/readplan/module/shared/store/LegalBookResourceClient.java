@@ -5,7 +5,10 @@ import com.readplan.module.shared.payload.ReadPlanPayloads.LegalBookResourceCand
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -19,11 +22,85 @@ public class LegalBookResourceClient {
     }
 
     public List<LegalBookResourceCandidate> search(String keyword, int limit) {
+        int safeLimit = Math.max(limit, 1);
+        Map<String, LegalBookResourceCandidate> candidates = new LinkedHashMap<>();
+
         try {
-            return searchChineseWikisource(keyword, Math.max(limit, 1));
+            for (LegalBookResourceCandidate candidate : searchOpenLibrary(keyword, safeLimit)) {
+                candidates.putIfAbsent(dedupKey(candidate), candidate);
+            }
         } catch (Exception ignored) {
-            return List.of();
+            // Ignore transient upstream failures and continue with the remaining source.
         }
+
+        try {
+            for (LegalBookResourceCandidate candidate : searchChineseWikisource(keyword, safeLimit)) {
+                candidates.putIfAbsent(dedupKey(candidate), candidate);
+            }
+        } catch (Exception ignored) {
+            // Ignore transient upstream failures and return whatever remains available.
+        }
+
+        return new ArrayList<>(candidates.values());
+    }
+
+    private List<LegalBookResourceCandidate> searchOpenLibrary(String keyword, int limit) {
+        JsonNode root = webClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .scheme("https")
+                .host("openlibrary.org")
+                .path("/search.json")
+                .queryParam("title", keyword)
+                .queryParam("has_fulltext", true)
+                .queryParam("limit", limit)
+                .build())
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .block();
+
+        List<LegalBookResourceCandidate> candidates = new ArrayList<>();
+        JsonNode docs = root == null ? null : root.path("docs");
+        if (docs == null || !docs.isArray()) {
+            return candidates;
+        }
+
+        for (JsonNode item : docs) {
+            String title = item.path("title").asText("");
+            String workKey = item.path("key").asText("");
+            if (title.isBlank() || workKey.isBlank()) {
+                continue;
+            }
+
+            String ebookAccess = item.path("ebook_access").asText("");
+            if (!"public".equalsIgnoreCase(ebookAccess) && !"borrowable".equalsIgnoreCase(ebookAccess)) {
+                continue;
+            }
+
+            String iaId = firstArrayText(item.path("ia"));
+            String resourceUrl = hasText(iaId)
+                ? "https://archive.org/details/" + iaId
+                : "https://openlibrary.org" + workKey;
+            String author = firstArrayText(item.path("author_name"));
+            int publishYear = item.path("first_publish_year").asInt(0);
+            String cover = buildOpenLibraryCover(item.path("cover_i").asText(""));
+            String resourceType = "public".equalsIgnoreCase(ebookAccess) ? "PUBLIC_ARCHIVE" : "BORROWABLE_ARCHIVE";
+            String description = "Open Library 检索结果，可跳转到 Internet Archive/Open Library 查看全文或借阅。";
+
+            candidates.add(new LegalBookResourceCandidate(
+                "OPENLIBRARY:" + workKey,
+                title,
+                author,
+                publishYear,
+                cover,
+                resourceUrl,
+                resourceType,
+                "Open Library",
+                description,
+                false
+            ));
+        }
+
+        return candidates;
     }
 
     private List<LegalBookResourceCandidate> searchChineseWikisource(String keyword, int limit) {
@@ -78,6 +155,25 @@ public class LegalBookResourceClient {
         }
 
         return candidates;
+    }
+
+    private String dedupKey(LegalBookResourceCandidate candidate) {
+        return (candidate.title() + "|" + candidate.author()).toLowerCase(Locale.ROOT).trim();
+    }
+
+    private String buildOpenLibraryCover(String coverId) {
+        if (!hasText(coverId)) {
+            return "";
+        }
+        return "https://covers.openlibrary.org/b/id/" + coverId + "-L.jpg";
+    }
+
+    private String firstArrayText(JsonNode node) {
+        if (node == null || !node.isArray() || node.isEmpty()) {
+            return "";
+        }
+        String value = node.get(0).asText("");
+        return value == null ? "" : value.trim();
     }
 
     private boolean hasText(String value) {

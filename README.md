@@ -41,7 +41,7 @@
   - Auth / User / Book / Plan / Note / Comment 接口
   - `MySQL + MyBatis-Plus` 实体、Mapper 和数据初始化
   - 首次启动自动建表并写入演示数据
-  - 资源搜索与导入接口（当前仅接入 `中文维基文库`）
+  - 资源搜索与导入接口（当前接入 `Open Library` 与 `中文维基文库`）
 - 数据库脚本：
   - [db/schema.sql](C:/Users/Administrator/Documents/Codex/2026-06-11/a/readplan-server/db/schema.sql)
 
@@ -124,8 +124,9 @@ pnpm dev
 2. 资源搜索导入
 3. 本地 `csv` / `json` / `pdf` 文件上传导入
 
-其中“资源搜索”会按书名查询公开来源、可预览来源和开放书目来源，当前接入：
+其中“资源搜索”会按书名查询可直接访问或可借阅的公开来源，当前接入：
 
+- `Open Library`
 - `中文维基文库`
 
 导入后：
